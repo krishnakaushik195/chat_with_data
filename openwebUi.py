@@ -1,10 +1,15 @@
-from langchain.sql_database import SQLDatabase
-from typing import List, Optional
-from pydantic import BaseModel, Field
-import time
-import logging
+"""
+title: Langflow Pipe Function
+author: moss
+version: 0.7.0
 
-logging.basicConfig(level=logging.DEBUG)
+This module defines a Pipe class that integrates Open WebUI with Langflow.
+"""
+
+from typing import Optional, Callable, Awaitable
+from pydantic import BaseModel, Field
+import requests
+import time
 
 
 class Pipeline:
@@ -38,9 +43,9 @@ class Pipeline:
         """
         try:
             self.db = SQLDatabase.from_uri(self.config.db_uri)
-            logging.info("Database connection initialized.")
+            print("Database connection initialized.")
         except Exception as e:
-            logging.error(f"Failed to initialize database connection: {e}")
+            print(f"Failed to initialize database connection: {e}")
 
     def get_schema(self) -> Optional[str]:
         """
@@ -50,75 +55,110 @@ class Pipeline:
             Optional[str]: A string representation of the database schema, or None if an error occurs.
         """
         if self.db is None:
-            logging.error("Database connection is not initialized. Call initialize_database() first.")
+            print("Database connection is not initialized. Call initialize_database() first.")
             return None
 
         try:
             schema = self.db.get_table_info()
             return schema
         except Exception as e:
-            logging.error(f"Failed to retrieve schema: {e}")
+            print(f"Failed to retrieve schema: {e}")
             return None
 
-    def execute_query(self, query: str) -> Optional[List[tuple]]:
-        """
-        Execute a raw SQL query and return the result.
-
-        Args:
-            query (str): The SQL query to execute.
-
-        Returns:
-            Optional[List[tuple]]: The result of the query as a list of tuples.
-        """
-        if self.db is None:
-            logging.error("Database connection is not initialized. Call initialize_database() first.")
-            return None
-
-        try:
-            result = self.db.run(query)
-            logging.info(f"Query executed successfully: {query}")
-            return result
-        except Exception as e:
-            logging.error(f"Failed to execute query: {e}")
-            return None
-
-    async def emit_status(self, level: str, message: str, done: bool):
+    async def emit_status(
+        self,
+        __event_emitter__: Callable[[dict], Awaitable[None]],
+        level: str,
+        message: str,
+        done: bool,
+    ):
         """
         Emit a status message at intervals defined in the configuration.
 
         Args:
+            __event_emitter__ (Callable[[dict], Awaitable[None]]): Event emitter function.
             level (str): The level of the status (e.g., 'info', 'error').
             message (str): The status message.
             done (bool): Whether the operation is complete.
         """
         current_time = time.time()
-        if current_time - self.last_emit_time >= self.config.emit_interval or done:
-            logging.info({
-                "status": "complete" if done else "in_progress",
-                "level": level,
-                "description": message,
-                "done": done
-            })
+        if __event_emitter__ and (
+            current_time - self.last_emit_time >= self.config.emit_interval or done
+        ):
+            await __event_emitter__(
+                {
+                    "type": "status",
+                    "data": {
+                        "status": "complete" if done else "in_progress",
+                        "level": level,
+                        "description": message,
+                        "done": done,
+                    },
+                }
+            )
             self.last_emit_time = current_time
+
+    async def pipe(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None,
+        __event_emitter__: Callable[[dict], Awaitable[None]] = None,
+        __event_call__: Callable[[dict], Awaitable[dict]] = None,
+    ) -> Optional[dict]:
+        """
+        Execute the pipeline with the provided body and optional user and event hooks.
+
+        Args:
+            body (dict): The input data for the pipeline.
+            __user__ (Optional[dict]): User information (default: None).
+            __event_emitter__ (Callable[[dict], Awaitable[None]]): Event emitter (default: None).
+            __event_call__ (Callable[[dict], Awaitable[dict]]): Event call function (default: None).
+
+        Returns:
+            Optional[dict]: The updated body after processing.
+        """
+        await self.emit_status(
+            __event_emitter__, "info", "Calling SQL Database...
+", False
+        )
+
+        messages = body.get("messages", [])
+
+        if messages:
+            user_message = messages[-1]["content"]
+            try:
+                result = self.db.run(user_message)
+                body["messages"].append(
+                    {"role": "assistant", "content": str(result)}
+                )
+            except Exception as e:
+                await self.emit_status(
+                    __event_emitter__, "error", f"Error during query execution: {str(e)}", True
+                )
+                return {"error": str(e)}
+        else:
+            await self.emit_status(
+                __event_emitter__, "error", "No messages found in the request body", True
+            )
+            body["messages"].append(
+                {
+                    "role": "assistant",
+                    "content": "No messages found in the request body",
+                }
+            )
+
+        await self.emit_status(__event_emitter__, "info", "Complete", True)
+        return body
 
 
 # Example usage
-if __name__ == "__main__":
-    pipeline = Pipeline()
+pipeline = Pipeline()
 
-    # Initialize database connection
-    pipeline.initialize_database()
+# Initialize database connection
+pipeline.initialize_database()
 
-    # Retrieve and display database schema
-    schema_info = pipeline.get_schema()
-    if schema_info:
-        logging.info("Database Schema:")
-        logging.info(schema_info)
-
-    # Example SQL query execution
-    query = "SELECT * FROM Artist LIMIT 5;"
-    query_result = pipeline.execute_query(query)
-    if query_result:
-        logging.info("Query Result:")
-        for row in query_result:
-            logging.info(row)
+# Retrieve and display database schema
+schema_info = pipeline.get_schema()
+if schema_info:
+    print("Database Schema:")
+    print(schema_info)
