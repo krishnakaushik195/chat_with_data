@@ -56,6 +56,27 @@ class Pipeline:
             print(f"Failed to retrieve schema: {e}")
             return None
 
+    def execute_query(self, query: str) -> Optional[str]:
+        """
+        Execute a raw SQL query and return the result.
+
+        Args:
+            query (str): The SQL query to execute.
+
+        Returns:
+            Optional[str]: The result of the query as a string.
+        """
+        if self.db is None:
+            print("Database connection is not initialized. Call initialize_database() first.")
+            return None
+
+        try:
+            result = self.db.run(query)
+            return result
+        except Exception as e:
+            print(f"Failed to execute query: {e}")
+            return None
+
     async def emit_status(self, level: str, message: str, done: bool):
         """
         Emit a status message at intervals defined in the configuration.
@@ -86,3 +107,9 @@ schema_info = pipeline.get_schema()
 if schema_info:
     print("Database Schema:")
     print(schema_info)
+
+# Execute a raw SQL query
+query_result = pipeline.execute_query("SELECT * FROM Artist LIMIT 5;")
+if query_result:
+    print("Query Result:")
+    print(query_result)
