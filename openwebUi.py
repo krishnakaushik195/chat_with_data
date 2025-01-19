@@ -1,164 +1,111 @@
-"""
-title: Langflow Pipe Function
-author: moss
-version: 0.7.0
+import mysql.connector
+from mysql.connector import Error
+import logging
+from typing import List, Union, Generator, Iterator
+import os
+from pydantic import BaseModel
 
-This module defines a Pipe class that integrates Open WebUI with Langflow.
-"""
+import aiohttp
+import asyncio
 
-from typing import Optional, Callable, Awaitable
-from pydantic import BaseModel, Field
-import requests
-import time
-
+logging.basicConfig(level=logging.DEBUG)
 
 class Pipeline:
-    """
-    A pipeline class for managing database interactions using LangChain's SQLDatabase.
-    """
-    class Config(BaseModel):
-        db_uri: str = Field(
-            default="mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook",
-            description="The URI for connecting to the database."
-        )
-        emit_interval: float = Field(
-            default=2.0,
-            description="Interval in seconds between status emissions."
-        )
+    class Valves(BaseModel):
+        DB_HOST: str
+        DB_PORT: str
+        DB_USER: str
+        DB_PASSWORD: str
+        DB_DATABASE: str
+        DB_TABLES: List[str]
 
     def __init__(self):
-        """
-        Initialize the Pipeline with default configuration.
-        """
-        self.type = "pipe"
-        self.id = "sql_pipeline"
-        self.name = "SQL Database Pipeline"
-        self.config = self.Config()
-        self.db = None
-        self.last_emit_time = 0
+        self.name = "02 Database Query"
+        self.conn = None
+        self.nlsql_response = ""
 
-    def initialize_database(self):
-        """
-        Initialize the database connection using the URI from the configuration.
-        """
-        try:
-            self.db = SQLDatabase.from_uri(self.config.db_uri)
-            print("Database connection initialized.")
-        except Exception as e:
-            print(f"Failed to initialize database connection: {e}")
-
-    def get_schema(self) -> Optional[str]:
-        """
-        Retrieve the database schema.
-
-        Returns:
-            Optional[str]: A string representation of the database schema, or None if an error occurs.
-        """
-        if self.db is None:
-            print("Database connection is not initialized. Call initialize_database() first.")
-            return None
-
-        try:
-            schema = self.db.get_table_info()
-            return schema
-        except Exception as e:
-            print(f"Failed to retrieve schema: {e}")
-            return None
-
-    async def emit_status(
-        self,
-        __event_emitter__: Callable[[dict], Awaitable[None]],
-        level: str,
-        message: str,
-        done: bool,
-    ):
-        """
-        Emit a status message at intervals defined in the configuration.
-
-        Args:
-            __event_emitter__ (Callable[[dict], Awaitable[None]]): Event emitter function.
-            level (str): The level of the status (e.g., 'info', 'error').
-            message (str): The status message.
-            done (bool): Whether the operation is complete.
-        """
-        current_time = time.time()
-        if __event_emitter__ and (
-            current_time - self.last_emit_time >= self.config.emit_interval or done
-        ):
-            await __event_emitter__(
-                {
-                    "type": "status",
-                    "data": {
-                        "status": "complete" if done else "in_progress",
-                        "level": level,
-                        "description": message,
-                        "done": done,
-                    },
-                }
-            )
-            self.last_emit_time = current_time
-
-    async def pipe(
-        self,
-        body: dict,
-        __user__: Optional[dict] = None,
-        __event_emitter__: Callable[[dict], Awaitable[None]] = None,
-        __event_call__: Callable[[dict], Awaitable[dict]] = None,
-    ) -> Optional[dict]:
-        """
-        Execute the pipeline with the provided body and optional user and event hooks.
-
-        Args:
-            body (dict): The input data for the pipeline.
-            __user__ (Optional[dict]): User information (default: None).
-            __event_emitter__ (Callable[[dict], Awaitable[None]]): Event emitter (default: None).
-            __event_call__ (Callable[[dict], Awaitable[dict]]): Event call function (default: None).
-
-        Returns:
-            Optional[dict]: The updated body after processing.
-        """
-        await self.emit_status(
-            __event_emitter__, "info", "Calling SQL Database...
-", False
+        self.valves = self.Valves(
+            **{
+                "DB_HOST": os.getenv("MYSQL_HOST", "localhost"),
+                "DB_PORT": os.getenv("MYSQL_PORT", '3306'),
+                "DB_USER": os.getenv("MYSQL_USER", "root"),
+                "DB_PASSWORD": os.getenv("MYSQL_PASSWORD", "Krishna@195"),
+                "DB_DATABASE": os.getenv("MYSQL_DB", "chinook"),
+                "DB_TABLES": ["albums"],
+            }
         )
 
-        messages = body.get("messages", [])
+    def init_db_connection(self):
+        connection_params = {
+            'host': self.valves.DB_HOST,
+            'port': int(self.valves.DB_PORT),
+            'user': self.valves.DB_USER,
+            'password': self.valves.DB_PASSWORD,
+            'database': self.valves.DB_DATABASE
+        }
 
-        if messages:
-            user_message = messages[-1]["content"]
+        try:
+            self.conn = mysql.connector.connect(**connection_params)
+            if self.conn.is_connected():
+                print("Connection to MySQL established successfully")
+        except Error as e:
+            print(f"Error connecting to MySQL: {e}")
+
+        # Create a cursor object
+        self.cur = self.conn.cursor()
+
+        # Query to get the list of tables
+        self.cur.execute("SHOW TABLES;")
+
+        # Fetch and print the table names
+        tables = self.cur.fetchall()
+        print("Tables in the database:")
+        for table in tables:
+            print(table[0])
+
+    async def on_startup(self):
+        self.init_db_connection()
+
+    async def on_shutdown(self):
+        if self.cur:
+            self.cur.close()
+        if self.conn:
+            self.conn.close()
+
+    async def make_request_with_retry(self, url, params, retries=3, timeout=10):
+        for attempt in range(retries):
             try:
-                result = self.db.run(user_message)
-                body["messages"].append(
-                    {"role": "assistant", "content": str(result)}
-                )
-            except Exception as e:
-                await self.emit_status(
-                    __event_emitter__, "error", f"Error during query execution: {str(e)}", True
-                )
-                return {"error": str(e)}
-        else:
-            await self.emit_status(
-                __event_emitter__, "error", "No messages found in the request body", True
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params=params, timeout=timeout) as response:
+                        response.raise_for_status()
+                        return await response.text()
+            except (aiohttp.ClientResponseError, aiohttp.ClientPayloadError, aiohttp.ClientConnectionError) as e:
+                logging.error(f"Attempt {attempt + 1} failed with error: {e}")
+                if attempt + 1 == retries:
+                    raise
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+
+    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+        try:
+            conn = mysql.connector.connect(
+                host=self.valves.DB_HOST,
+                port=int(self.valves.DB_PORT),
+                user=self.valves.DB_USER,
+                password=self.valves.DB_PASSWORD,
+                database=self.valves.DB_DATABASE
             )
-            body["messages"].append(
-                {
-                    "role": "assistant",
-                    "content": "No messages found in the request body",
-                }
-            )
 
-        await self.emit_status(__event_emitter__, "info", "Complete", True)
-        return body
+            conn.autocommit = True
+            cursor = conn.cursor()
+            sql = user_message
 
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            return str(result)
 
-# Example usage
-pipeline = Pipeline()
-
-# Initialize database connection
-pipeline.initialize_database()
-
-# Retrieve and display database schema
-schema_info = pipeline.get_schema()
-if schema_info:
-    print("Database Schema:")
-    print(schema_info)
+        except mysql.connector.Error as e:
+            logging.error(f"MySQL Error: {e}")
+            return f"MySQL Error: {e}"
+        except Exception as e:
+            logging.error(f"Unexpected error: {e}")
+            return f"Unexpected error: {e}"
