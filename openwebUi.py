@@ -20,7 +20,7 @@ class Pipeline:
         DB_TABLES: List[str]
 
     def __init__(self):
-        self.name = "02 Database Query"
+        self.name = "krishna Database Query"
         self.conn = None
         self.nlsql_response = ""
 
