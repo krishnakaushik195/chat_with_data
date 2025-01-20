@@ -1,111 +1,59 @@
-import mysql.connector
-from mysql.connector import Error
-import logging
-from typing import List, Union, Generator, Iterator
 import os
-from pydantic import BaseModel
+from typing import Optional
+from langchain.sql_database import SQLDatabase  # Ensure correct library
+from blueprints.function_calling_blueprint import Pipeline as FunctionCallingBlueprint
 
-import aiohttp
-import asyncio
 
-logging.basicConfig(level=logging.DEBUG)
+class Pipeline(FunctionCallingBlueprint):
+    class Valves(FunctionCallingBlueprint.Valves):
+        # Add your custom parameters here
+        DATABASE_URI: str = ""
 
-class Pipeline:
-    class Valves(BaseModel):
-        DB_HOST: str
-        DB_PORT: str
-        DB_USER: str
-        DB_PASSWORD: str
-        DB_DATABASE: str
-        DB_TABLES: List[str]
+    class Tools:
+        def __init__(self, pipeline) -> None:
+            self.pipeline = pipeline
+            self.db: Optional[SQLDatabase] = None
+
+        def connect_to_database(self) -> str:
+            """
+            Connect to the SQL database using the URI defined in the valves.
+
+            :return: Connection status message.
+            """
+            if not self.pipeline.valves.DATABASE_URI:
+                return "Database URI is not set. Please set the DATABASE_URI in the valves."
+            
+            try:
+                self.db = SQLDatabase.from_uri(self.pipeline.valves.DATABASE_URI)
+                return "Successfully connected to the database."
+            except Exception as e:
+                return f"Failed to connect to the database: {str(e)}"
+
+        def get_database_schema(self) -> str:
+            """
+            Retrieve and display the database schema.
+
+            :return: Database schema or error message.
+            """
+            if not self.db:
+                return "Database is not connected. Use the connect_to_database tool first."
+            
+            try:
+                schema_info = self.db.get_table_info()
+                return f"Database Schema:\n{schema_info}"
+            except Exception as e:
+                return f"Failed to retrieve database schema: {str(e)}"
 
     def __init__(self):
-        self.name = "krishna Database Query"
-        self.conn = None
-        self.nlsql_response = ""
-
+        super().__init__()
+        self.name = "Database Tools Pipeline"
         self.valves = self.Valves(
             **{
-                "DB_HOST": os.getenv("MYSQL_HOST", "localhost"),
-                "DB_PORT": os.getenv("MYSQL_PORT", '3306'),
-                "DB_USER": os.getenv("MYSQL_USER", "root"),
-                "DB_PASSWORD": os.getenv("MYSQL_PASSWORD", "Krishna@195"),
-                "DB_DATABASE": os.getenv("MYSQL_DB", "chinook"),
-                "DB_TABLES": ["albums"],
-            }
+                **self.valves.model_dump(),
+                "pipelines": ["*"],  # Connect to all pipelines
+                "DATABASE_URI": os.getenv(
+                    "DATABASE_URI", "mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook"
+                ),
+            },
         )
-
-    def init_db_connection(self):
-        connection_params = {
-            'host': self.valves.DB_HOST,
-            'port': int(self.valves.DB_PORT),
-            'user': self.valves.DB_USER,
-            'password': self.valves.DB_PASSWORD,
-            'database': self.valves.DB_DATABASE
-        }
-
-        try:
-            self.conn = mysql.connector.connect(**connection_params)
-            if self.conn.is_connected():
-                print("Connection to MySQL established successfully")
-        except Error as e:
-            print(f"Error connecting to MySQL: {e}")
-
-        # Create a cursor object
-        self.cur = self.conn.cursor()
-
-        # Query to get the list of tables
-        self.cur.execute("SHOW TABLES;")
-
-        # Fetch and print the table names
-        tables = self.cur.fetchall()
-        print("Tables in the database:")
-        for table in tables:
-            print(table[0])
-
-    async def on_startup(self):
-        self.init_db_connection()
-
-    async def on_shutdown(self):
-        if self.cur:
-            self.cur.close()
-        if self.conn:
-            self.conn.close()
-
-    async def make_request_with_retry(self, url, params, retries=3, timeout=10):
-        for attempt in range(retries):
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, params=params, timeout=timeout) as response:
-                        response.raise_for_status()
-                        return await response.text()
-            except (aiohttp.ClientResponseError, aiohttp.ClientPayloadError, aiohttp.ClientConnectionError) as e:
-                logging.error(f"Attempt {attempt + 1} failed with error: {e}")
-                if attempt + 1 == retries:
-                    raise
-                await asyncio.sleep(2 ** attempt)  # Exponential backoff
-
-    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
-        try:
-            conn = mysql.connector.connect(
-                host=self.valves.DB_HOST,
-                port=int(self.valves.DB_PORT),
-                user=self.valves.DB_USER,
-                password=self.valves.DB_PASSWORD,
-                database=self.valves.DB_DATABASE
-            )
-
-            conn.autocommit = True
-            cursor = conn.cursor()
-            sql = user_message
-
-            cursor.execute(sql)
-            result = cursor.fetchall()
-            return str(result)
-
-        except mysql.connector.Error as e:
-            logging.error(f"MySQL Error: {e}")
-            return f"MySQL Error: {e}"
-        except Exception as e:
-            logging.error(f"Unexpected error: {e}")
-            return f"Unexpected error: {e}"
+        self.tools = self.Tools(self)
