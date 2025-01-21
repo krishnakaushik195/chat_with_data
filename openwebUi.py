@@ -80,18 +80,4 @@ class Pipeline:
             schema = self.get_database_schema()
             return schema
 
-# Example usage
-if __name__ == "__main__":
-    pipeline = Pipeline()
 
-    # Replace with your actual database URI
-    db_uri = "mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook"
-
-    # Connect to the database
-    connection_status = pipeline.connect_to_database(db_uri)
-    print(connection_status)
-
-    # If connection is successful, retrieve schema
-    if "Successfully connected" in connection_status:
-        schema_info = pipeline.get_database_schema()
-        print(schema_info)
