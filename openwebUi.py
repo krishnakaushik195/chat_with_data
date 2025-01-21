@@ -4,9 +4,9 @@ from sqlalchemy import create_engine
 
 
 class Pipeline:
-    def __init__(self):
+    def __init__(self, db_uri: str):
         self.name = "00 Repeater Example"
-        pass
+        self.db_uri = db_uri  # Database URI passed during initialization
 
     async def on_startup(self):
         """
@@ -25,6 +25,8 @@ class Pipeline:
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """
         This function is called when a new user_message is received.
+        
+        It will print the database schema whenever a message is received.
 
         Args:
         user_message (str): The message from the user.
@@ -36,28 +38,36 @@ class Pipeline:
         Union[str, Generator, Iterator]: A string response to be sent back, or a generator/iterator if needed.
         """
         print(f"received message from user: {user_message}")  # user_message to logs
-        return f"received message from user: {user_message}"  # user_message to the UI
+        
+        # Fetch the schema whenever a message is received
+        schema_info = self.get_schema(self.db_uri)
+        
+        # Convert schema information to a string for displaying
+        schema_display = "\n".join(
+            [f"Table: {table_name}, Columns: {', '.join(columns)}" for table_name, columns in schema_info.items()]
+        )
+        
+        return f"received message from user: {user_message}\n\nDatabase Schema:\n{schema_display}"
 
+    def get_schema(self, db_uri: str) -> dict:
+        """
+        Fetches schema information from a given database.
 
-def get_schema(db_uri: str) -> dict:
-    """
-    Fetches schema information from a given database.
+        Args:
+        db_uri (str): The database URI for connecting to the database.
 
-    Args:
-    db_uri (str): The database URI for connecting to the database.
+        Returns:
+        dict: A dictionary containing the schema information (table names and columns).
+        """
+        engine = create_engine(db_uri)
+        with engine.connect() as connection:
+            query = "SHOW TABLES;"
+            tables = connection.execute(query).fetchall()
 
-    Returns:
-    dict: A dictionary containing the schema information (table names and columns).
-    """
-    engine = create_engine(db_uri)
-    with engine.connect() as connection:
-        query = "SHOW TABLES;"
-        tables = connection.execute(query).fetchall()
+            schema_info = {}
+            for (table_name,) in tables:
+                schema_query = f"SHOW COLUMNS FROM {table_name};"
+                columns = connection.execute(schema_query).fetchall()
+                schema_info[table_name] = [column[0] for column in columns]
 
-        schema_info = {}
-        for (table_name,) in tables:
-            schema_query = f"SHOW COLUMNS FROM {table_name};"
-            columns = connection.execute(schema_query).fetchall()
-            schema_info[table_name] = [column[0] for column in columns]
-
-        return schema_info
+            return schema_info
