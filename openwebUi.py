@@ -3,10 +3,29 @@ import sqlalchemy
 from sqlalchemy import create_engine
 
 
+# Define your database URIs
+db_uris = {
+    "sys": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sys',
+    "chinook": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook',
+    "sakila" : 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sakila'
+}
+
+
 class Pipeline:
-    def __init__(self, db_uri: str):
+    def __init__(self, db_name: str):
+        """
+        Initialize the pipeline with a database name from the db_uris dictionary.
+        
+        Args:
+        db_name (str): The name of the database (e.g., 'sys', 'chinook', 'sakila').
+        """
         self.name = "00 Repeater Example"
-        self.db_uri = db_uri  # Database URI passed during initialization
+        
+        # Select the database URI based on the db_name provided
+        self.db_uri = db_uris.get(db_name)
+        if not self.db_uri:
+            raise ValueError(f"Database {db_name} not found in db_uris.")
+        print(f"Using database: {db_name}")
 
     async def on_startup(self):
         """
