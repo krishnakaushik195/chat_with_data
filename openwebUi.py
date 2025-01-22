@@ -1,6 +1,7 @@
+import os
 from typing import List, Union
-import aiohttp
 from pydantic import BaseModel
+from groq import Groq
 
 class Pipeline:
     class Valves(BaseModel):
@@ -9,13 +10,15 @@ class Pipeline:
 
     def __init__(self):
         self.name = "Groq API Pipeline"
-
         self.valves = self.Valves(
             **{
                 "GROQ_API_URL": os.getenv("GROQ_API_URL", "https://api.groq.com/openai/v1"),
                 "GROQ_API_KEY": os.getenv("GROQ_API_KEY", "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"),
             }
         )
+
+        # Initialize Groq client
+        self.client = Groq(api_key=self.valves.GROQ_API_KEY)
 
     async def on_startup(self):
         # This function is called when the server is started.
@@ -25,24 +28,18 @@ class Pipeline:
         # This function is called when the server is shutdown.
         print(f"on_shutdown:{__name__}")
 
-    async def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+    async def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, None]:
         # This function is called when a new user_message is received.
         print(f"received message from user: {user_message}")  # Log user_message
 
-        headers = {
-            "Authorization": f"Bearer {self.valves.GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        # Create chat completion using Groq client
+        chat_completion = self.client.chat.completions.create(
+            messages=messages,
+            model=model_id,
+        )
 
-        payload = {
-            "model": model_id,
-            "messages": messages
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(self.valves.GROQ_API_URL, json=payload, headers=headers) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result.get("choices", [{}])[0].get("message", {}).get("content", "")
-                else:
-                    return f"Error: Received status code {response.status}"
+        # Return the content of the response or an error message
+        if chat_completion.choices:
+            return chat_completion.choices[0].message.content
+        else:
+            return "Error: No choices received in the response."
