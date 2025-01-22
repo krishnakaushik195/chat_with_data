@@ -4,12 +4,11 @@ from mysql.connector import connection
 class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
-        # Updated connection details based on your MySQL setup
+        # Updated connection details without password
         self.db_config = {
             'user': 'root',
             'host': 'localhost',  # assuming localhost as the host
             'database': 'chinook',  # your specified database
-            'password': 'Krishna@195'
         }
         self.conn = None
 
