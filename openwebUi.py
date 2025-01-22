@@ -1,12 +1,16 @@
 from typing import List, Union, Generator, Iterator
-from langchain_community.utilities import SQLDatabase
+from mysql.connector import connection
 
 class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
-        # Updated MySQL connection URI with the Chinook database
-        self.mysql_uri = 'mysql+mysqlconnector://root:Krishna@195@localhost:3306/Chinook'
-        self.db = None
+        self.db_config = {
+            'user': 'root',
+            'host': 'localhost',
+            'database': 'chinook',
+            'password': 'Krishna@195'
+        }
+        self.conn = None
 
     async def on_startup(self):
         # This function is called when the server is started.
@@ -21,27 +25,25 @@ class Pipeline:
         self.disconnect_from_db()
 
     def connect_to_db(self):
-        """Establish a connection to the MySQL database using Langchain."""
+        """Establish a connection to the MySQL database."""
         try:
-            self.db = SQLDatabase.from_uri(self.mysql_uri)
-            print("Connected to MySQL database via Langchain.")
+            self.conn = connection.MySQLConnection(**self.db_config)
+            print("Connected to MySQL server.")
         except Exception as e:
             print(f"Error connecting to MySQL: {e}")
 
     def disconnect_from_db(self):
-        """Close the database connection."""
-        if self.db:
-            print("Disconnected from MySQL database.")
-            self.db = None
-        else:
-            print("No active database connection to close.")
+        """Close the MySQL database connection."""
+        if self.conn:
+            self.conn.close()
+            print("Disconnected from MySQL server.")
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
         print(f"received message from user: {user_message}") # user_message to logs
         
         # Check if the connection is established and return the appropriate message
-        if self.db:
+        if self.conn:
             return f"Connected to MySQL database. Received message from user: {user_message}"
         else:
             return "Database connection not established. Please check the connection."
