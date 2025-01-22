@@ -40,27 +40,9 @@ class Pipeline:
             self.conn.close()
             print("Disconnected from MySQL server.")
 
-    def launch_schema(self):
-        """Launch the database schema details."""
-        if not self.conn:
-            print("Database connection not established.")
-            return "Database connection not established."
-
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute("SHOW TABLES;")
-            tables = cursor.fetchall()
-
-            schema_details = []
-            for (table_name,) in tables:
-                schema_details.append(f"Table: {table_name}")
-            
-            cursor.close()
-            return "\n".join(schema_details)
-
-        except Error as e:
-            print(f"Error launching schema: {e}")
-            return f"Error launching schema: {e}"
+    def get_schema(self, db_name):
+        """Retrieve the schema information for the given database name."""
+        return db_connections[db_name].get_table_info()
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
@@ -68,7 +50,7 @@ class Pipeline:
         
         # Check if the connection is established and return the appropriate message
         if self.conn:
-            schema = self.launch_schema()
+            schema = self.get_schema('chinook')
             return f"Connected to MySQL database: chinook. Schema: {schema}. Received message from user: {user_message}"
         else:
             return "Database connection not established. Please check the connection."
