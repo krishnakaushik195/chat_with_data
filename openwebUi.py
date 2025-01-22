@@ -1,6 +1,7 @@
 from typing import List, Union, Generator, Iterator
 from mysql.connector import connection, Error
 import asyncio
+from langchain.sql_database import SQLDatabase
 
 class Pipeline:
     def __init__(self):
@@ -41,26 +42,14 @@ class Pipeline:
             print("Disconnected from MySQL server.")
 
     def get_schema(self):
-        """Retrieve and return the schema of the connected database."""
-        if not self.conn:
-            print("Database connection not established.")
-            return "Database connection not established."
-
+        """Retrieve and return the schema of the connected database using LangChain."""
         try:
-            cursor = self.conn.cursor()
-            cursor.execute("SHOW TABLES;")
-            tables = cursor.fetchall()
-
-            schema = {}
-            for (table_name,) in tables:
-                cursor.execute(f"DESCRIBE {table_name};")
-                schema[table_name] = cursor.fetchall()
-
-            cursor.close()
+            uri = f"mysql+mysqlconnector://{self.db_config['user']}:{self.db_config['password']}@{self.db_config['host']}/{self.db_config['database']}"
+            db = SQLDatabase.from_uri(uri)
+            schema = db.get_schema()
             return schema
-
-        except Error as e:
-            print(f"Error retrieving schema: {e}")
+        except Exception as e:
+            print(f"Error retrieving schema with LangChain: {e}")
             return f"Error retrieving schema: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
