@@ -1,11 +1,9 @@
-import logging
 from typing import List, Union, Generator, Iterator
+import logging
 import os
 from pydantic import BaseModel
 import pymysql
 from pymysql import OperationalError
-
-logging.basicConfig(level=logging.DEBUG)
 
 class Pipeline:
     class Valves(BaseModel):
@@ -31,6 +29,17 @@ class Pipeline:
             }
         )
 
+    async def on_startup(self):
+        # This function is called when the server is started.
+        print(f"on_startup:{__name__}")
+        self.init_db_connection()
+
+    async def on_shutdown(self):
+        # This function is called when the server is shutdown.
+        print(f"on_shutdown:{__name__}")
+        if self.conn:
+            self.conn.close()
+
     def init_db_connection(self):
         try:
             self.conn = pymysql.connect(
@@ -41,51 +50,33 @@ class Pipeline:
                 database=self.valves.DB_DATABASE
             )
             print("Connection to MySQL established successfully")
+
+            # Create a cursor object
+            self.cur = self.conn.cursor()
+
+            # Query to get the list of tables
+            self.cur.execute("SHOW TABLES;")
+
+            # Fetch and print the table names
+            tables = self.cur.fetchall()
+            print("Tables in the database:")
+            for table in tables:
+                print(table[0])
+
+            # Query to get the column names of a specific table
+            for table in self.valves.DB_TABLES:
+                print(f"Columns in the '{table}' table:")
+                self.cur.execute(f"SHOW COLUMNS FROM {table};")
+                columns = self.cur.fetchall()
+                for column in columns:
+                    print(column[0])
         except OperationalError as e:
             print(f"Error connecting to MySQL: {e}")
 
-        # Create a cursor object
-        self.cur = self.conn.cursor()
-
-        # Query to get the list of tables
-        self.cur.execute("SHOW TABLES;")
-
-        # Fetch and print the table names
-        tables = self.cur.fetchall()
-        print("Tables in the database:")
-        for table in tables:
-            print(table[0])
-
-        # Query to get the column names of a specific table
-        for table in self.valves.DB_TABLES:
-            print(f"Columns in the '{table}' table:")
-            self.cur.execute(f"SHOW COLUMNS FROM {table};")
-            columns = self.cur.fetchall()
-            for column in columns:
-                print(column[0])
-
-    async def on_startup(self):
-        self.init_db_connection()
-
-    async def on_shutdown(self):
-        self.cur.close()
-        self.conn.close()
-
-    def extract_sql_query(self, response_object):
-        for key, value in response_object.items():
-            if isinstance(value, dict) and 'sql_query' in value:
-                return value['sql_query']
-            elif key == 'sql_query':
-                return value
-        return None
-
-    def handle_streaming_response(self, response_gen):
-        final_response = ""
-        for chunk in response_gen:
-            final_response += chunk
-        return final_response
-
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+        # This function is called when a new user_message is received.
+        print(f"received message from user: {user_message}")  # Log user_message
+
         try:
             query = "SELECT * FROM movies LIMIT 5;"  # Example query
 
