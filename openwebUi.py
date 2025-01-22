@@ -1,76 +1,99 @@
-import logging
-from typing import List, Union
-from mysql.connector import connection
-import asyncio
-
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)  # You can change this to INFO or WARNING in production
-logger = logging.getLogger(__name__)
+import os
+from typing import Optional, Any, Dict, List, Union, Generator, Iterator
+from langchain_community.utilities import SQLDatabase
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
 
 class Pipeline:
     def __init__(self):
-        self.name = "00 Repeater Example"
-        # Updated connection details (use password if needed)
-        self.db_config = {
-            'user': 'root',
-            'host': 'host.docker.internal',  # assuming localhost as the host
-            'database': 'chinook',  # your specified database
-            'password': 'Krishna@195'
+        self.name = "Database Query Pipeline"
+        # Set the environment variable for the API key
+        os.environ['GROQ_API_KEY'] = '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'
+
+        # Database URIs
+        self.db_uris = {
+            "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys',
+            "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
+            "sakila" : 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila'
         }
-        self.conn = None
 
-    async def on_startup(self):
-        try:
-            # This function is called when the server is started.
-            logger.info(f"on_startup:{__name__}")
-            # Connect to the database when the server starts
-            self.connect_to_db()
-        except Exception as e:
-            # Catch any errors during startup and return them
-            logger.error(f"Error during startup: {e}")
-            return f"Error during startup: {e}"
+        # Initialize connections
+        self.db_connections = {name: SQLDatabase.from_uri(uri) for name, uri in self.db_uris.items()}
 
-    async def on_shutdown(self):
-        try:
-            # This function is called when the server is shut down.
-            logger.info(f"on_shutdown:{__name__}")
-            # Close the database connection when the server shuts down
-            self.disconnect_from_db()
-        except Exception as e:
-            # Catch any errors during shutdown and return them
-            logger.error(f"Error during shutdown: {e}")
-            return f"Error during shutdown: {e}"
+        # Prompts
+        self.schema_matching_prompt = ChatPromptTemplate.from_template("""You are an intelligent assistant. Based on the following database schema, check where this user's question belong or related to this schema. Respond strictly with yes or no without any explanations or additional details.
+        Schema:{schema}
+        Question: {question}
+        Match:""")
 
-    def connect_to_db(self):
-        """Establish a connection to the MySQL database."""
-        try:
-            self.conn = connection.MySQLConnection(**self.db_config)
-            logger.info("Connected to MySQL server.")
-        except Exception as e:
-            logger.error(f"Error connecting to MySQL: {e}")
-            raise Exception(f"Error connecting to MySQL: {e}")  # Raising the error to be caught in the async function
+        self.generate_sql_prompt = ChatPromptTemplate.from_template("""Generate only the SQL query to answer the user's question. Do not include any explanations, natural language responses, or other text:
+        {schema}
+        Question: {question}
+        SQL Query:""")
 
-    def disconnect_from_db(self):
-        """Close the MySQL database connection."""
-        try:
-            if self.conn:
-                self.conn.close()
-                logger.info("Disconnected from MySQL server.")
-        except Exception as e:
-            logger.error(f"Error disconnecting from MySQL: {e}")
-            raise Exception(f"Error disconnecting from MySQL: {e}")  # Raising the error to be caught in the async function
+        self.visualization_prompt = ChatPromptTemplate.from_template("""Output the following data directly as a clean table without any introductory text, explanations, or additional information:
+        {query_result}
+        """)
 
-    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str]:
-        """This function is called when a new user_message is received."""
+        # Initialize the Groq LLM
+        self.llm = ChatGroq()
+
+    def get_schema(self, db_name: str) -> str:
+        return self.db_connections[db_name].get_table_info()
+
+    def determine_relevant_database(self, question: str) -> Optional[str]:
+        """Determines the relevant database for a given question."""
+        for db_name in self.db_connections.keys():
+            schema = self.get_schema(db_name)
+            formatted_prompt = self.schema_matching_prompt.format(schema=schema, question=question)
+            response = self.llm.invoke(formatted_prompt).content.strip().lower()
+            normalized_response = response.replace("'", "").rstrip('.').strip()
+            if normalized_response == "yes":
+                return db_name
+        return None
+
+    def generate_sql_query(self, schema: str, question: str) -> str:
+        """Generates an SQL query based on the provided schema and question."""
+        formatted_sql_prompt = self.generate_sql_prompt.format(schema=schema, question=question)
+        return self.llm.invoke(formatted_sql_prompt).content.strip()
+
+    def execute_query(self, database: str, query: str) -> Any:
+        """Executes the SQL query on the specified database."""
         try:
-            logger.info(f"received message from user: {user_message}")  # user_message to logs
-            
-            # Check if the connection is established and return the appropriate message
-            if self.conn:
-                return f"Connected to MySQL database: chinook. Received message from user: {user_message}"
-            else:
-                return "Database connection not established. Please check the connection."
+            return self.db_connections[database].run(query)
         except Exception as e:
-            # Return error message in case of exception
-            logger.error(f"Error in pipe function: {e}")
-            return f"Error in pipe function: {e}"
+            return str(e)
+
+    def format_query_result(self, query_result: Any) -> str:
+        """Formats the query result into a clean table format."""
+        formatted_visualization_prompt = self.visualization_prompt.format(query_result=query_result)
+        return self.llm.invoke(formatted_visualization_prompt).content
+
+    def pipe(self, user_question: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+        """Processes the user question and returns the selected database, generated query, and query result."""
+        print(f"Received message from user: {user_question}")
+
+        # Step 1: Determine the relevant database
+        selected_database = self.determine_relevant_database(user_question)
+
+        if not selected_database:
+            return {"error": "No matching database found for the question."}
+
+        # Step 2: Generate the SQL query
+        schema = self.get_schema(selected_database)
+        generated_sql = self.generate_sql_query(schema, user_question)
+
+        # Step 3: Execute the SQL query
+        query_result = self.execute_query(selected_database, generated_sql)
+
+        if isinstance(query_result, str) and "Error" in query_result:
+            return {"error": f"Error executing query: {query_result}"}
+
+        # Step 4: Format the query result
+        formatted_result = self.format_query_result(query_result)
+
+        return {
+            "selected_database": selected_database,
+            "generated_sql": generated_sql,
+            "query_result": formatted_result
+        }
