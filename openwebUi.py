@@ -38,6 +38,14 @@ class Pipeline:
         # Initialize the Groq LLM
         self.llm = ChatGroq()
 
+    async def on_startup(self):
+        # This function is called when the server is started.
+        print(f"on_startup:{__name__}")
+
+    async def on_shutdown(self):
+        # This function is called when the server is shutdown.
+        print(f"on_shutdown:{__name__}")
+
     def get_schema(self, db_name: str) -> str:
         return self.db_connections[db_name].get_table_info()
 
