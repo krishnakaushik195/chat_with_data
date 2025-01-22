@@ -1,6 +1,5 @@
 from typing import List, Union, Generator, Iterator
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from mysql.connector import connection
 import asyncio
 from langchain.sql_database import SQLDatabase
 
@@ -29,7 +28,7 @@ class Pipeline:
                 'password': 'Krishna@195'
             }
         }
-        self.engines = {}
+        self.connections = {}
         self.schemas = {}
 
     async def on_startup(self):
@@ -42,19 +41,16 @@ class Pipeline:
     async def on_shutdown(self):
         # This function is called when the server is shut down.
         print(f"on_shutdown:{__name__}")
-        # Dispose all database connections when the server shuts down
+        # Disconnect from all databases when the server shuts down
         self.disconnect_from_dbs()
 
     def connect_to_dbs(self):
         """Establish connections to all specified databases."""
         for db_name, config in self.db_configs.items():
             try:
-                uri = f"mysql+mysqlconnector://{config['user']}:{config['password']}@{config['host']}/{config['database']}"
-                engine = create_engine(uri)
-                # Test connection
-                with engine.connect() as conn:
-                    print(f"Connected to MySQL database: {db_name}")
-                self.engines[db_name] = engine
+                conn = connection.MySQLConnection(**config)
+                print(f"Connected to MySQL database: {db_name}")
+                self.connections[db_name] = conn
             except Exception as e:
                 print(f"Error connecting to database {db_name}: {e}")
 
@@ -62,19 +58,18 @@ class Pipeline:
         """Fetch and store database schemas using LangChain."""
         for db_name, config in self.db_configs.items():
             try:
-                db = SQLDatabase.from_uri(
-                    f"mysql+mysqlconnector://{config['user']}:{config['password']}@{config['host']}/{config['database']}"
-                )
+                uri = f"mysql+mysqlconnector://{config['user']}:{config['password']}@{config['host']}/{config['database']}"
+                db = SQLDatabase.from_uri(uri)
                 self.schemas[db_name] = db.get_schema()
                 print(f"Fetched schema for database {db_name}: {self.schemas[db_name]}")
             except Exception as e:
                 print(f"Error fetching schema for database {db_name}: {e}")
 
     def disconnect_from_dbs(self):
-        """Dispose all database connections."""
-        for db_name, engine in self.engines.items():
+        """Close all database connections."""
+        for db_name, conn in self.connections.items():
             try:
-                engine.dispose()
+                conn.close()
                 print(f"Disconnected from MySQL database: {db_name}")
             except Exception as e:
                 print(f"Error disconnecting from database {db_name}: {e}")
@@ -84,7 +79,7 @@ class Pipeline:
         print(f"received message from user: {user_message}")  # user_message to logs
         
         # Check if connections are established and return the appropriate message
-        connected_dbs = [db_name for db_name, engine in self.engines.items() if engine]
+        connected_dbs = [db_name for db_name, conn in self.connections.items() if conn.is_connected()]
         if connected_dbs:
             return f"Connected to databases: {', '.join(connected_dbs)}. Received message from user: {user_message}"
         else:
