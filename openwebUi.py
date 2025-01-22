@@ -9,9 +9,9 @@ class Pipeline:
         
         # Database URIs
         self.db_uris = {
-            "sys": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sys',
-            "chinook": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook',
-            "sakila": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sakila'
+            "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys',
+            "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
+            "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila'
         }
         self.engines = {}
 
