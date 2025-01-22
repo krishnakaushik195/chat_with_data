@@ -13,7 +13,7 @@ class Pipeline:
         # Updated connection details (use password if needed)
         self.db_config = {
             'user': 'root',
-            'host': 'localhost',  # assuming localhost as the host
+            'host': 'host.docker.internal',  # assuming localhost as the host
             'database': 'chinook',  # your specified database
             'password': 'Krishna@195'
         }
