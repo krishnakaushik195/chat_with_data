@@ -1,14 +1,17 @@
 from typing import List, Union, Generator, Iterator
 from mysql.connector import connection
+import asyncio
 
 class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
-        # Updated connection details without password
+        # Updated connection details (use password if needed)
         self.db_config = {
             'user': 'root',
             'host': 'localhost',  # assuming localhost as the host
             'database': 'chinook',  # your specified database
+            # Uncomment below if password is required (use your actual password)
+            # 'password': 'Krishna@195'
         }
         self.conn = None
 
