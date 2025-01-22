@@ -19,7 +19,7 @@ class Pipeline:
         Args:
         db_name (str): The name of the database (e.g., 'sys', 'chinook', 'sakila').
         """
-        self.name = "00 Repeater Example"
+        self.name = "Example"
         
         # Select the database URI based on the db_name provided
         self.db_uri = db_uris.get(db_name)
