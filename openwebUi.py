@@ -14,7 +14,6 @@ class Pipeline:
             'password': 'Krishna@195'
         }
         self.conn = None
-        self.db_connections = {}
 
     async def on_startup(self):
         # This function is called when the server is started.
@@ -31,9 +30,6 @@ class Pipeline:
     def connect_to_db(self):
         """Establish a connection to the MySQL database."""
         try:
-            uri = f"mysql+mysqlconnector://{self.db_config['user']}:{self.db_config['password']}@{self.db_config['host']}/{self.db_config['database']}"
-            db = SQLDatabase.from_uri(uri)
-            self.db_connections[self.db_config['database']] = db
             self.conn = connection.MySQLConnection(**self.db_config)
             print("Connected to MySQL server.")
         except Exception as e:
@@ -45,15 +41,15 @@ class Pipeline:
             self.conn.close()
             print("Disconnected from MySQL server.")
 
-    def get_schema(self, db_name):
-        """Retrieve and return the schema of the specified database using LangChain."""
+    def get_schema(self):
+        """Retrieve and return the schema of the connected database using LangChain."""
         try:
-            if db_name in self.db_connections:
-                return self.db_connections[db_name].get_table_info()
-            else:
-                return f"Database connection for {db_name} not found."
+            uri = f"mysql+mysqlconnector://{self.db_config['user']}:{self.db_config['password']}@{self.db_config['host']}/{self.db_config['database']}"
+            db = SQLDatabase.from_uri(uri)
+            schema = db.get_schema()
+            return schema
         except Exception as e:
-            print(f"Error retrieving schema: {e}")
+            print(f"Error retrieving schema with LangChain: {e}")
             return f"Error retrieving schema: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
@@ -62,7 +58,7 @@ class Pipeline:
         
         # Check if the connection is established and return the appropriate message
         if self.conn:
-            schema = self.get_schema(self.db_config['database'])
+            schema = self.get_schema()
             return f"Connected to MySQL database: chinook. Schema: {schema}. Received message from user: {user_message}"
         else:
             return "Database connection not established. Please check the connection."
