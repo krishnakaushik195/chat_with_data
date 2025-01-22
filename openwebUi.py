@@ -10,8 +10,8 @@ class Pipeline:
             'user': 'root',
             'host': 'localhost',  # assuming localhost as the host
             'database': 'chinook',  # your specified database
-            # Uncomment below if password is required (use your actual password)
-            # 'password': 'Krishna@195'
+
+            'password': 'Krishna@195'
         }
         self.conn = None
 
