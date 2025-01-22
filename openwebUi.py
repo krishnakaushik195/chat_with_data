@@ -45,27 +45,17 @@ class Pipeline:
             print("Disconnected from MySQL server.")
 
     def get_schema(self):
-        """Retrieve and return the schema of the connected database."""
-        if not self.conn:
-            print("Database connection not established.")
-            return "Database connection not established."
+        """Retrieve and return the schema of the connected database using Langchain."""
+        if not self.langchain_db:
+            print("Langchain database connection not initialized.")
+            return "Langchain database connection not initialized."
 
         try:
-            cursor = self.conn.cursor()
-            cursor.execute("SHOW TABLES;")
-            tables = cursor.fetchall()
-
-            schema = {}
-            for (table_name,) in tables:
-                cursor.execute(f"DESCRIBE {table_name};")
-                schema[table_name] = cursor.fetchall()
-
-            cursor.close()
+            schema = self.langchain_db.get_table_info()
             return schema
-
-        except Error as e:
-            print(f"Error retrieving schema: {e}")
-            return f"Error retrieving schema: {e}"
+        except Exception as e:
+            print(f"Error retrieving schema using Langchain: {e}")
+            return f"Error retrieving schema using Langchain: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
@@ -73,8 +63,7 @@ class Pipeline:
         
         # Check if the connection is established and return the appropriate message
         if self.conn:
-            # Get schema using Langchain's SQLDatabase
-            schema = self.langchain_db.get_table_info()
+            schema = self.get_schema()
             return f"Connected to MySQL database: chinook. Schema: {schema}. Received message from user: {user_message}"
         else:
             return "Database connection not established. Please check the connection."
