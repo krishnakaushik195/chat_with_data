@@ -6,14 +6,17 @@ class Pipeline:
         self.name = "Schema Retriever"
         self.db_uri = 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook'
         self.db = SQLDatabase.from_uri(self.db_uri)
+        pass
 
     async def on_startup(self):
         # This function is called when the server is started.
         print(f"on_startup: {__name__}")
+        pass
 
     async def on_shutdown(self):
         # This function is called when the server is shut down.
         print(f"on_shutdown: {__name__}")
+        pass
 
     def get_schema(self) -> str:
         """
