@@ -1,52 +1,64 @@
 from typing import List, Union, Generator, Iterator
-from mysql.connector import connection
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 import asyncio
 
 class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
-        # Updated connection details (use password if needed)
-        self.db_config = {
-            'user': 'root',
-            'host': 'host.docker.internal',  # assuming localhost as the host
-            'database': 'chinook',  # your specified database
-
-            'password': 'Krishna@195'
+        
+        # Database URIs
+        self.db_uris = {
+            "sys": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sys',
+            "chinook": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook',
+            "sakila": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sakila'
         }
-        self.conn = None
+        self.engines = {}
 
     async def on_startup(self):
         # This function is called when the server is started.
         print(f"on_startup:{__name__}")
-        # Connect to the database when the server starts
-        self.connect_to_db()
+        # Connect to all databases when the server starts
+        self.connect_to_dbs()
 
     async def on_shutdown(self):
         # This function is called when the server is shut down.
         print(f"on_shutdown:{__name__}")
-        # Close the database connection when the server shuts down
-        self.disconnect_from_db()
+        # Dispose all database connections when the server shuts down
+        self.disconnect_from_dbs()
 
-    def connect_to_db(self):
-        """Establish a connection to the MySQL database."""
-        try:
-            self.conn = connection.MySQLConnection(**self.db_config)
-            print("Connected to MySQL server.")
-        except Exception as e:
-            print(f"Error connecting to MySQL: {e}")
+    def connect_to_dbs(self):
+        """Establish connections to all specified databases."""
+        for db_name, uri in self.db_uris.items():
+            try:
+                engine = create_engine(uri)
+                # Test connection
+                with engine.connect() as conn:
+                    print(f"Connected to MySQL database: {db_name}")
+                self.engines[db_name] = engine
+            except Exception as e:
+                print(f"Error connecting to database {db_name}: {e}")
 
-    def disconnect_from_db(self):
-        """Close the MySQL database connection."""
-        if self.conn:
-            self.conn.close()
-            print("Disconnected from MySQL server.")
+    def disconnect_from_dbs(self):
+        """Dispose all database connections."""
+        for db_name, engine in self.engines.items():
+            try:
+                engine.dispose()
+                print(f"Disconnected from MySQL database: {db_name}")
+            except Exception as e:
+                print(f"Error disconnecting from database {db_name}: {e}")
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
         print(f"received message from user: {user_message}")  # user_message to logs
         
-        # Check if the connection is established and return the appropriate message
-        if self.conn:
-            return f"Connected to MySQL database: chinook. Received message from user: {user_message}"
+        # Check if connections are established and return the appropriate message
+        connected_dbs = [db_name for db_name, engine in self.engines.items() if engine]
+        if connected_dbs:
+            return f"Connected to databases: {', '.join(connected_dbs)}. Received message from user: {user_message}"
         else:
-            return "Database connection not established. Please check the connection."
+            return "No database connections established. Please check the configurations."
+
+# Example usage if required
+# pipeline = Pipeline()
+# asyncio.run(pipeline.on_startup())
