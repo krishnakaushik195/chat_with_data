@@ -1,9 +1,9 @@
-from langchain_community.utilities import SQLDatabase
+#from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 
 class Pipeline:
     def __init__(self):
-        self.name = "00 Repeater Example"
+        self.name = "Example"
         pass
 
     async def on_startup(self):
@@ -31,7 +31,7 @@ class Pipeline:
         print(f"received message from user: {user_message}")  # user_message to logs
 
         # Call the get_schema function to get the database schema
-        #schema = self.get_schema()
+        schema = self.get_schema()
         
         # Return the schema and user message as part of the response
         return (f"received message from user: {user_message}\nSchema: {schema}")
