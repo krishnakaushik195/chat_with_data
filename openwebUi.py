@@ -19,7 +19,7 @@ class Pipeline:
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
