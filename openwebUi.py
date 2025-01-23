@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
 db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
 }
 
 def run_query(database, query):
