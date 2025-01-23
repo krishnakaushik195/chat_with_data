@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example with Schema Matching for SQL"
+        self.name = "Groq API Example for SQL Query Generation"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -48,21 +48,20 @@ class Pipeline:
         # Fetch the schema
         schema = self.get_schema()
 
-        # Define the schema matching prompt template
-        schema_matching_prompt_template = """You are an intelligent assistant. Based on the following database schema, check where this user's question belongs or relates to this schema. Respond strictly with yes or no without any explanations or additional details.
-        Schema: {schema}
+        # Define the generate SQL prompt template
+        generate_sql_prompt_template = """Generate only the SQL query to answer the user's question. Do not include any explanations, natural language responses, or other text:
+        {schema}
         Question: {question}
-        Match:"""
+        SQL Query:"""
         
-        # Create the schema matching prompt
-        schema_matching_prompt = ChatPromptTemplate.from_template(schema_matching_prompt_template)
+        # Create the prompt using the schema and user message
+        generate_sql_prompt = ChatPromptTemplate.from_template(generate_sql_prompt_template)
 
         # Combine the schema and user message to generate the final prompt
-        combined_prompt = schema_matching_prompt.format(schema=schema, question=user_message)
+        combined_prompt = generate_sql_prompt.format(schema=schema, question=user_message)
 
         # Call the Groq API with the combined prompt
         groq_response = self.call_groq_api(combined_prompt)
         
         # Return the Groq response (SQL query)
         return f"Generated SQL Query: {groq_response}"
-
