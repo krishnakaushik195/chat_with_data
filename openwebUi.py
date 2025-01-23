@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
 db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
 }
 
 def run_query(database, query):
@@ -23,15 +23,15 @@ class Pipeline:
 
     async def on_startup(self):
         # This function is called when the server is started.
-        print(f"on_startup: {__name__}")
+        pass
 
     async def on_shutdown(self):
         # This function is called when the server is shutdown.
-        print(f"on_shutdown: {__name__}")
+        pass
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
@@ -52,10 +52,6 @@ class Pipeline:
             return f"Error while communicating with Groq API: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
-        # This function is called when a new user_message is received.
-        
-        print(f"received message from user: {user_message}")  # Log user_message
-
         # Fetch the schema
         schema = self.get_schema()
 
@@ -78,7 +74,7 @@ class Pipeline:
         if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
             db_response = run_query('your_database', groq_response)
             
-            # Directly format the database response as a structured table
+            # Step 1: Directly format the database response as a structured table
             visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
             {query_result}
             """
@@ -87,7 +83,7 @@ class Pipeline:
             # Format the database response using the visualization prompt
             formatted_response = visualization_prompt.format(query_result=db_response)
             
-            # Return both the SQL query and the formatted database response
-            return f"Generated SQL Query: {groq_response}\nFormatted Database Response:\n{formatted_response}"
+            # **DO NOT repeat the prompt** in the final output, just return:
+            return f"SQL Query:\n{groq_response}\n\nFormatted Database Response:\n{formatted_response}"
         else:
             return "No valid SQL query generated."
