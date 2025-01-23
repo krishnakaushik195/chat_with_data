@@ -3,9 +3,21 @@ from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
 from langchain.prompts import ChatPromptTemplate
 
+# Simulated db_connections object for database access
+db_connections = {
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
+}
+
+def run_query(database, query):
+    try:
+        # Execute the query against the specified database and return the result
+        return db_connections[database].run(query)
+    except Exception as e:
+        return str(e)
+
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example for SQL Query Generation"
+        self.name = "Groq API Example for SQL Query Generation and Execution"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -19,12 +31,11 @@ class Pipeline:
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
         schema = db.get_table_info()
-
         return schema
 
     def call_groq_api(self, prompt: str, model: str = "mixtral-8x7b-32768") -> str:
@@ -63,5 +74,10 @@ class Pipeline:
         # Call the Groq API with the combined prompt
         groq_response = self.call_groq_api(combined_prompt)
         
-        # Return the Groq response (SQL query)
-        return f"Generated SQL Query: {groq_response}"
+        # Now, execute the SQL query using the run_query function
+        if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
+            db_response = run_query('your_database', groq_response)
+            return f"Generated SQL Query: {groq_response}\nDatabase Response: {db_response}"
+        else:
+            return "No valid SQL query generated."
+
