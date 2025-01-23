@@ -1,12 +1,11 @@
-import os
-import requests
 from typing import List, Union, Generator, Iterator
+from groq import Groq  # Ensure the Groq library is installed
 
 class Pipeline:
     def __init__(self):
-        self.name = "00 Repeater Example"
-        self.groq_api_key = os.getenv("GROQ_API_KEY", "default_key")
-        self.groq_api_url = "https://api.groq.com/v1/execute"  # Replace with the correct endpoint if needed
+        self.name = "Groq API Example"
+        # Initialize the Groq client with the hardcoded API key
+        self.client = Groq(api_key="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")
 
     async def on_startup(self):
         # This function is called when the server is started.
@@ -16,26 +15,26 @@ class Pipeline:
         # This function is called when the server is shutdown.
         print(f"on_shutdown: {__name__}")
 
-    def call_groq_api(self, user_message: str) -> str:
+    def call_groq_api(self, user_message: str, model: str = "mixtral-8x7b-32768") -> str:
         """Send a request to the Groq API and return its response."""
-        headers = {
-            "Authorization": f"Bearer {self.groq_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "query": user_message  # Assuming Groq API expects a "query" field
-        }
         try:
-            response = requests.post(self.groq_api_url, json=payload, headers=headers)
-            response.raise_for_status()  # Raise an error for bad HTTP status codes
-            return response.json().get("response", "No response from Groq API.")  # Adjust based on Groq API's actual response structure
-        except requests.exceptions.RequestException as e:
+            # Call the Groq API for a chat completion
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {"role": "user", "content": user_message}
+                ],
+                model=model
+            )
+            # Extract and return the content of the first choice
+            return chat_completion.choices[0].message.content
+        except Exception as e:
             return f"Error while communicating with Groq API: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
+        
         print(f"received message from user: {user_message}")  # Log user_message
 
-        # Call the Groq API and return its response
+        # Call the Groq API and get the response
         groq_response = self.call_groq_api(user_message)
-        return f"Groq API response: {groq_response}"  # Response to the UI
+        return (f"Groq API response: {groq_response}")  # Response to the UI
