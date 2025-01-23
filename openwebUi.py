@@ -46,10 +46,12 @@ class DatabasePipeline:
 
     async def on_startup(self):
         """Startup tasks for the pipeline."""
+        print(f"on_startup:{__name__}")
         self.init_db_connection()
 
     async def on_shutdown(self):
         """Shutdown tasks for the pipeline."""
+         print(f"on_shutdown:{__name__}")
         for db_name, db in self.db_connections.items():
             if hasattr(db, 'engine'):
                 db.engine.dispose()
