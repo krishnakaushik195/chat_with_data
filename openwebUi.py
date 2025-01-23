@@ -17,7 +17,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example for SQL Query Generation and Execution"
+        self.name = "Agent"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
