@@ -74,7 +74,7 @@ class Pipeline:
         if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
             db_response = run_query('your_database', groq_response)
             
-            # Step 1: Directly format the database response as a structured table
+            # Directly format the database response as a structured table
             visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
             {query_result}
             """
@@ -83,7 +83,7 @@ class Pipeline:
             # Format the database response using the visualization prompt
             formatted_response = visualization_prompt.format(query_result=db_response)
             
-            # **DO NOT repeat the prompt** in the final output, just return:
-            return f"SQL Query:\n{groq_response}\n\nFormatted Database Response:\n{formatted_response}"
+            # Return only the SQL query and the formatted database response
+            return f"{groq_response}\n{formatted_response}"
         else:
             return "No valid SQL query generated."
