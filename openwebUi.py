@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
 db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
 }
 
 def run_query(database, query):
@@ -17,7 +17,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example for SQL Query Generation and Execution"
+        self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -31,7 +31,7 @@ class Pipeline:
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
@@ -50,6 +50,18 @@ class Pipeline:
             return chat_completion.choices[0].message.content
         except Exception as e:
             return f"Error while communicating with Groq API: {e}"
+
+    def call_visualization_api(self, query_result: str) -> str:
+        """Format the query result into a clean table."""
+        visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
+        {query_result}
+        """
+        visualization_prompt = ChatPromptTemplate.from_template(visualization_prompt_template)
+        
+        # Format the query result into the table structure using the visualization prompt
+        formatted_result = visualization_prompt.format(query_result=query_result)
+        
+        return formatted_result
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
@@ -77,7 +89,11 @@ class Pipeline:
         # Now, execute the SQL query using the run_query function
         if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
             db_response = run_query('your_database', groq_response)
-            return f"Generated SQL Query: {groq_response}\nDatabase Response: {db_response}"
+            
+            # Format the database response as a structured table
+            formatted_response = self.call_visualization_api(db_response)
+            
+            # Return both the SQL query and the formatted database response
+            return f"Generated SQL Query: {groq_response}\nFormatted Database Response:\n{formatted_response}"
         else:
             return "No valid SQL query generated."
-
