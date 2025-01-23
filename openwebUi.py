@@ -1,10 +1,11 @@
 from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
+from langchain.prompts import ChatPromptTemplate
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example with Schema"
+        self.name = "Groq API Example with Schema Matching for SQL"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -34,7 +35,7 @@ class Pipeline:
                 messages=[{"role": "user", "content": prompt}],
                 model=model
             )
-            # Extract and return the content of the first choice
+            # Extract and return the content of the first choice (SQL query)
             return chat_completion.choices[0].message.content
         except Exception as e:
             return f"Error while communicating with Groq API: {e}"
@@ -47,12 +48,21 @@ class Pipeline:
         # Fetch the schema
         schema = self.get_schema()
 
-        # Combine schema and user message to form a comprehensive prompt for Groq API
-        combined_prompt = f"Database Schema:\n{schema}\n\nUser Message:\n{user_message}"
+        # Define the schema matching prompt template
+        schema_matching_prompt_template = """You are an intelligent assistant. Based on the following database schema, check where this user's question belongs or relates to this schema. Respond strictly with yes or no without any explanations or additional details.
+        Schema: {schema}
+        Question: {question}
+        Match:"""
+        
+        # Create the schema matching prompt
+        schema_matching_prompt = ChatPromptTemplate.from_template(schema_matching_prompt_template)
 
-        # Call the Groq API and get the response
+        # Combine the schema and user message to generate the final prompt
+        combined_prompt = schema_matching_prompt.format(schema=schema, question=user_message)
+
+        # Call the Groq API with the combined prompt
         groq_response = self.call_groq_api(combined_prompt)
         
-        # Return the Groq response
-        return f"Groq API response: {groq_response}"
+        # Return the Groq response (SQL query)
+        return f"Generated SQL Query: {groq_response}"
 
