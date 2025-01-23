@@ -17,7 +17,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
+        self.name = "Groq API Example for SQL Query Generation and Execution"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -77,17 +77,7 @@ class Pipeline:
         # Now, execute the SQL query using the run_query function
         if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
             db_response = run_query('your_database', groq_response)
-            
-            # Directly format the database response as a structured table
-            visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
-            {query_result}
-            """
-            visualization_prompt = ChatPromptTemplate.from_template(visualization_prompt_template)
-            
-            # Format the database response using the visualization prompt
-            formatted_response = visualization_prompt.format(query_result=db_response)
-            
-            # Return both the SQL query and the formatted database response
-            return f"Generated SQL Query: {groq_response}\nFormatted Database Response:\n{formatted_response}"
+            return f"Generated SQL Query: {groq_response}\nDatabase Response: {db_response}"
         else:
             return "No valid SQL query generated."
+
