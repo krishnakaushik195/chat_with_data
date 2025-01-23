@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
 db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
 }
 
 def run_query(database, query):
@@ -17,7 +17,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
+        self.name = "Database agent"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -31,7 +31,7 @@ class Pipeline:
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
