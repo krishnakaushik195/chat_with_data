@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
 db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
+    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys')
 }
 
 def run_query(database, query):
@@ -17,7 +17,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Agent"
+        self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
 
@@ -31,7 +31,7 @@ class Pipeline:
 
     def get_schema(self):
         # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
         # Create a SQLDatabase object using the URI
         db = SQLDatabase.from_uri(mysql_uri)
         # Fetch schema information
@@ -46,7 +46,7 @@ class Pipeline:
                 messages=[{"role": "user", "content": prompt}],
                 model=model
             )
-            # Extract and return the content of the first choice (SQL query)
+            # Extract and return the content of the first choice (SQL query or formatted result)
             return chat_completion.choices[0].message.content
         except Exception as e:
             return f"Error while communicating with Groq API: {e}"
@@ -77,6 +77,22 @@ class Pipeline:
         # Now, execute the SQL query using the run_query function
         if groq_response.strip().lower() != "no":  # If the response is not "No", it's a valid query
             db_response = run_query('your_database', groq_response)
-            return f"Generated SQL Query: {groq_response}\nDatabase Response: {db_response}"
+            query_result = db_response
+            
+            # Now pass the query result to the visualization prompt
+            visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
+            {query_result}
+            """
+            # Create the prompt using the query result
+            visualization_prompt = ChatPromptTemplate.from_template(visualization_prompt_template)
+
+            # Combine the query result with the visualization prompt
+            combined_visualization_prompt = visualization_prompt.format(query_result=query_result)
+
+            # Get the clean table formatted output from Groq
+            formatted_result = self.call_groq_api(combined_visualization_prompt)
+
+            # Return both the SQL query and the formatted table result
+            return f"Generated SQL Query: {groq_response}\nFormatted Table: {formatted_result}"
         else:
             return "No valid SQL query generated."
