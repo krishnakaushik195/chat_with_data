@@ -80,4 +80,3 @@ class Pipeline:
             return f"Generated SQL Query: {groq_response}\nDatabase Response: {db_response}"
         else:
             return "No valid SQL query generated."
-
