@@ -1,4 +1,4 @@
-#from langchain_community.utilities import SQLDatabase
+from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 
 class Pipeline:
