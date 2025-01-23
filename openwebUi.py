@@ -38,12 +38,13 @@ class Pipeline:
         schema = db.get_table_info()
         return schema
 
-    def call_groq_api(self, prompt: str) -> str:
+    def call_groq_api(self, prompt: str, model: str = "mixtral-8x7b-32768") -> str:
         """Send a request to the Groq API and return its response."""
         try:
             # Call the Groq API for a chat completion
             chat_completion = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
+                model=model
             )
             # Extract and return the content of the first choice (SQL query)
             return chat_completion.choices[0].message.content
