@@ -18,8 +18,8 @@ def run_query(database, query):
 class Pipeline:
     def __init__(self):
         self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
-        # Initialize the Groq client with the new API key
-        self.client = Groq(api_key="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")
+        # Initialize the Groq client with the hardcoded API key
+        self.client = Groq(api_key="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")
 
     async def on_startup(self):
         # This function is called when the server is started.
