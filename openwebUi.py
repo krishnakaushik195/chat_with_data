@@ -19,7 +19,7 @@ class Pipeline:
     def __init__(self):
         self.name = "Groq API Example for SQL Query Generation, Execution, and Visualization"
         # Initialize the Groq client with the hardcoded API key
-        self.client = Groq(api_key="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")
+        self.client = Groq(api_key="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")
 
     async def on_startup(self):
         # This function is called when the server is started.
