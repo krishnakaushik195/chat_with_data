@@ -15,6 +15,15 @@ class Pipeline:
         # This function is called when the server is shutdown.
         print(f"on_shutdown:{__name__}")
         pass
+    def get_schema(self):
+        # Define the MySQL URI
+        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
+        # Create a SQLDatabase object using the URI
+        db = SQLDatabase.from_uri(mysql_uri)
+        # Fetch schema information
+        schema = db.get_table_info()
+
+        return schema
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
@@ -26,15 +35,6 @@ class Pipeline:
         
         # Return the schema and user message as part of the response
         return (f"received message from user: {user_message}\nSchema: {schema}")
-
-    def get_schema(self):
-        # Define the MySQL URI
-        mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys'
         
-        # Create a SQLDatabase object using the URI
-        db = SQLDatabase.from_uri(mysql_uri)
 
-        # Fetch schema information
-        schema = db.get_table_info()
 
-        return schema
