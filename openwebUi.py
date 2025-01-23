@@ -50,13 +50,9 @@ class DatabasePipeline:
         self.init_db_connection()
 
     async def on_shutdown(self):
-        """Shutdown tasks for the pipeline."""
-         print(f"on_shutdown:{__name__}")
-        for db_name, db in self.db_connections.items():
-            if hasattr(db, 'engine'):
-                db.engine.dispose()
-        self.db_connections.clear()
-        print("Database connections closed.")
+        self.cur.close()
+        self.conn.close()
+
 
     def get_schema(self, db_name: str):
         """Retrieve the schema for the specified database."""
