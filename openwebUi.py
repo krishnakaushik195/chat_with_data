@@ -1,6 +1,7 @@
 from typing import List, Union, Generator, Iterator
 from mysql.connector import connection, Error
 import asyncio
+from langchain_community.utilities import SQLDatabase
 
 class Pipeline:
     def __init__(self):
@@ -41,8 +42,15 @@ class Pipeline:
             print("Disconnected from MySQL server.")
 
     def get_schema(self, db_name):
-        """Retrieve the schema information for the given database name."""
-        return db_connections[db_name].get_table_info()
+        """Retrieve and return the schema of the specified database."""
+        try:
+            return db_connections[db_name].get_table_info()
+        except KeyError:
+            print(f"Database {db_name} not found in connections.")
+            return f"Database {db_name} not found."
+        except Exception as e:
+            print(f"Error retrieving schema: {e}")
+            return f"Error retrieving schema: {e}"
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         # This function is called when a new user_message is received.
