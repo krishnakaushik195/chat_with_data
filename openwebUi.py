@@ -83,10 +83,7 @@ class Pipeline:
             # Format the database response using the visualization prompt
             formatted_response = visualization_prompt.format(query_result=db_response)
             
-            # Step 2: Reformat the already formatted response again for the final output
-            final_response = visualization_prompt.format(query_result=formatted_response)
-            
-            # Return only the SQL query and the double-formatted database response
-            return f"{groq_response}\n{final_response}"
+            # **DO NOT repeat the prompt** in the final output, just return:
+            return f"SQL Query:\n{groq_response}\n\nFormatted Database Response:\n{formatted_response}"
         else:
             return "No valid SQL query generated."
