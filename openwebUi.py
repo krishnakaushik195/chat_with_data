@@ -38,7 +38,7 @@ class Pipeline:
         schema = db.get_table_info()
         return schema
 
-    def call_groq_api(self, prompt: str, model: str = "mixtral-8x7b-32768") -> str:
+    def call_groq_api(self, prompt: str, model: str = "llama-3.3-70b-versatile") -> str:
         """Send a request to the Groq API and return its response."""
         try:
             # Call the Groq API for a chat completion
