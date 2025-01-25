@@ -16,9 +16,9 @@ class Pipeline:
         pass
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
-        if self.initial_greeting:
-            self.initial_greeting = False  # Disable the greeting after the first interaction
-            return "Hi, how are you?"
+        # if self.initial_greeting:
+        #     self.initial_greeting = False  # Disable the greeting after the first interaction
+        return "Hi, how are you?"
 
         # Echo back the user message after the greeting
         print(f"received message from user: {user_message}")  # Log user_message
