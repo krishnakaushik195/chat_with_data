@@ -7,7 +7,7 @@ import time
 
 # Define database URIs
 db_uris = {
-    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys',
+    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna',
     "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
     "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila'
 }
