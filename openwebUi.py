@@ -102,7 +102,7 @@ class Pipeline:
             combined_visualization_prompt = visualization_prompt.format(query_result=db_response)
             formatted_result = self.call_groq_api(combined_visualization_prompt)
 
-            # Step 6: Return the database name, SQL query, and formatted result
-            return f"Selected Database: {relevant_database}\nGenerated SQL Query: {sql_query}\nFormatted Table:\n{formatted_result}"
+            # Step 6: Return the database name and formatted result
+            return f"Selected Database: {relevant_database}\nFormatted Table:\n{formatted_result}"
         else:
-            return f"Selected Database: {relevant_database}\nNo valid SQL query generated."
+            return f"Selected Database: {relevant_database}\nNo valid query result generated."
