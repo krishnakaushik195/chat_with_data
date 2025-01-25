@@ -4,9 +4,19 @@ from groq import Groq  # Ensure the Groq library is installed
 from langchain.prompts import ChatPromptTemplate
 
 # Simulated db_connections object for database access
-db_connections = {
-    'your_database': SQLDatabase.from_uri('mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook')
+db_uris = {
+    "sys": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sys',
+    "chinook": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/chinook',
+    "sakila": 'mysql+mysqlconnector://root:Krishna%40195@localhost:3306/sakila'
 }
+
+db_connections = {db_name: SQLDatabase.from_uri(uri) for db_name, uri in db_uris.items()}
+
+schema_matching_prompt_template = """You are an intelligent assistant. Based on the following database schema, check where this user's question belong or related to this schema. Respond strictly with yes or no without any explanations or additional details.
+Schema:{schema}
+Question: {question}
+Match:"""
+schema_matching_prompt = ChatPromptTemplate.from_template(schema_matching_prompt_template)
 
 def run_query(database: str, query: str):
     """Execute the query against the specified database and return the result."""
@@ -20,6 +30,7 @@ class Pipeline:
         self.name = "Database agent"
         # Initialize the Groq client with the hardcoded API key
         self.client = Groq(api_key="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")
+        self.selected_database = None
 
     async def on_startup(self):
         """This function is called when the server starts."""
@@ -29,11 +40,10 @@ class Pipeline:
         """This function is called when the server shuts down."""
         print(f"on_shutdown: {__name__}")
 
-    def get_schema(self) -> str:
-        """Fetch schema information from the database."""
+    def get_schema(self, database: str) -> str:
+        """Fetch schema information from the specified database."""
         try:
-            mysql_uri = 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook'
-            db = SQLDatabase.from_uri(mysql_uri)
+            db = db_connections[database]
             schema = db.get_table_info()
             return schema
         except Exception as e:
@@ -50,13 +60,34 @@ class Pipeline:
         except Exception as e:
             return f"Error while communicating with Groq API: {e}"
 
+    def determine_relevant_database(self, question: str) -> Union[str, None]:
+        """Determine which database the question is relevant to."""
+        for db_name in db_connections.keys():
+            schema = self.get_schema(db_name)
+            if "Error" in schema:
+                continue
+            formatted_prompt = schema_matching_prompt.format(schema=schema, question=question)
+            response = self.call_groq_api(formatted_prompt).strip().lower()
+            normalized_response = response.replace("'", "").rstrip('.').strip()
+            if normalized_response == "yes":
+                return db_name
+        return None
+
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """Handle incoming user messages and process them."""
         try:
             print(f"Received message from user: {user_message}")  # Log user message
 
-            # Fetch the schema
-            schema = self.get_schema()
+            # Prompt user to select a database if not already selected
+            if not self.selected_database:
+                relevant_db = self.determine_relevant_database(user_message)
+                if relevant_db:
+                    self.selected_database = relevant_db
+                else:
+                    return "Please specify which database you want to use: sys, chinook, or sakila."
+
+            # Fetch the schema for the selected database
+            schema = self.get_schema(self.selected_database)
             if "Error" in schema:
                 return schema
 
@@ -79,7 +110,7 @@ class Pipeline:
 
             # Execute the SQL query if valid
             if groq_response.strip().lower() != "no":
-                db_response = run_query('your_database', groq_response)
+                db_response = run_query(self.selected_database, groq_response)
 
                 # Define the visualization prompt template
                 visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
