@@ -28,7 +28,6 @@ class Pipeline:
         self.name = "Multi-Database Groq API Pipeline"
         # Initialize the Groq client
         self.client = Groq(api_key="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")
-        self.selected_database = None
 
     async def on_startup(self):
         print(f"on_startup: {__name__}")
@@ -69,25 +68,28 @@ class Pipeline:
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """Pipeline for processing the user's message."""
-        
-        # Handle general conversational queries like "hi" or "hello"
-        if user_message.lower() in ["hi", "hello", "hey", "how are you"]:
-            return "Hello! How can I assist you today? 😊"
-
         print(f"received message from user: {user_message}")
 
-        # Step 1: If no database has been selected, ask user to select a database
-        if not self.selected_database:
-            return self.ask_for_database_selection()
+        # Step 1: Show Available Databases
+        print("Available Databases:")
+        for db_name in db_connections.keys():
+            print(f"- {db_name}")
+        
+        # Ask user to select a database or continue with auto-selection
+        print("\nPlease select a database or type 'auto' to have the system choose for you:")
+        user_selection = input().strip().lower()
 
-        # Step 2: If no database matches based on the question, auto-select it
-        relevant_database = self.determine_relevant_database(user_message)
-        if not relevant_database:
-            return "Unable to determine a relevant database for the user's question."
-
-        # Notify about the selected database
-        print(f"Selected Database: {relevant_database}")
-        self.selected_database = relevant_database  # Set the selected database for this session
+        if user_selection == "auto":
+            # Step 2: Automatically determine the relevant database based on the user's question
+            relevant_database = self.determine_relevant_database(user_message)
+            if not relevant_database:
+                return "Unable to determine a relevant database for the user's question."
+            print(f"System selected the database: {relevant_database}")
+        elif user_selection in db_connections:
+            relevant_database = user_selection
+            print(f"User selected the database: {relevant_database}")
+        else:
+            return "Invalid selection. Please choose a valid database."
 
         # Step 3: Fetch the schema of the selected database
         schema = self.get_schema(relevant_database)
@@ -117,17 +119,3 @@ class Pipeline:
             return f"Selected Database: {relevant_database}\nFormatted Table:\n{formatted_result}"
         else:
             return f"Selected Database: {relevant_database}\nNo valid query result generated."
-
-    def ask_for_database_selection(self):
-        """List available databases and ask user to select one."""
-        database_names = list(db_connections.keys())
-        return f"Please select a database:\n" + "\n".join([f"{i+1}. {name}" for i, name in enumerate(database_names)])
-
-    def select_database(self, choice: int):
-        """Select a database based on the user's choice."""
-        database_names = list(db_connections.keys())
-        if 1 <= choice <= len(database_names):
-            self.selected_database = database_names[choice - 1]
-            return f"Selected Database: {self.selected_database}"
-        else:
-            return "Invalid selection. Please choose a valid number."
