@@ -75,6 +75,9 @@ class Pipeline:
         if not relevant_database:
             return "Unable to determine a relevant database for the user's question."
 
+        # Notify about the selected database
+        print(f"Selected Database: {relevant_database}")
+
         # Step 2: Fetch the schema of the selected database
         schema = self.get_schema(relevant_database)
 
@@ -99,7 +102,7 @@ class Pipeline:
             combined_visualization_prompt = visualization_prompt.format(query_result=db_response)
             formatted_result = self.call_groq_api(combined_visualization_prompt)
 
-            # Step 6: Return the SQL query and formatted result
-            return f"Generated SQL Query: {sql_query}\nFormatted Table:\n{formatted_result}"
+            # Step 6: Return the database name, SQL query, and formatted result
+            return f"Selected Database: {relevant_database}\nGenerated SQL Query: {sql_query}\nFormatted Table:\n{formatted_result}"
         else:
-            return "No valid SQL query generated."
+            return f"Selected Database: {relevant_database}\nNo valid SQL query generated."
