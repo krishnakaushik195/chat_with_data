@@ -1,5 +1,5 @@
 from langchain_community.utilities import SQLDatabase
-from typing import List, Union
+from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
 from langchain.prompts import ChatPromptTemplate
 
@@ -16,43 +16,28 @@ db_connections = {
     for db_name, uri in db_uris.items()
 }
 
-# Function to execute SQL query
 def run_query(database, query):
+    """Run the SQL query against the specified database."""
     try:
         return db_connections[database].run(query)
     except Exception as e:
         return str(e)
 
-class ChatDatabaseAgent:
+class Pipeline:
     def __init__(self):
-        self.name = "Conversational Chatbot & Database Agent"
+        self.name = "Multi-Database Groq API Pipeline"
+        # Initialize the Groq client
         self.client = Groq(api_key="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")
-        self.available_databases = list(db_uris.keys())
-        self.selected_database = None  # For manual selection
+        self.selected_database = None
 
     async def on_startup(self):
-        print(f"Welcome to the Database Agent!")
-        print(f"Available Databases: {', '.join(self.available_databases)}")
-        print("You can either:")
-        print("1. Select a database manually (e.g., 'Select sakila').")
-        print("2. Let me automatically determine the best database for your question.")
+        print(f"on_startup: {__name__}")
 
     async def on_shutdown(self):
-        print("Shutting down the agent. See you next time!")
-
-    def respond_to_greeting(self, user_message: str) -> str:
-        """Handle basic conversational queries."""
-        greetings = ["hi", "hello", "hey", "how are you", "what's up"]
-        if any(greet in user_message.lower() for greet in greetings):
-            return "Hello! How can I assist you today?"
-        elif "thank you" in user_message.lower():
-            return "You're welcome! 😊"
-        elif "bye" in user_message.lower():
-            return "Goodbye! Have a great day! 👋"
-        return None  # Not a greeting
+        print(f"on_shutdown: {__name__}")
 
     def get_schema(self, db_name):
-        """Fetch the schema of the selected database."""
+        """Get the schema of the specified database."""
         return db_connections[db_name].get_table_info()
 
     def call_groq_api(self, prompt: str, model: str = "mixtral-8x7b-32768") -> str:
@@ -82,21 +67,32 @@ class ChatDatabaseAgent:
                 return db_name
         return None
 
-    def handle_database_query(self, user_message: str) -> str:
-        """Handle database-related queries."""
-        if self.selected_database:
-            db_name = self.selected_database
-        else:
-            db_name = self.determine_relevant_database(user_message)
+    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+        """Pipeline for processing the user's message."""
+        
+        # Handle general conversational queries like "hi" or "hello"
+        if user_message.lower() in ["hi", "hello", "hey", "how are you"]:
+            return "Hello! How can I assist you today? 😊"
 
-        if not db_name:
-            return "I'm unable to determine the relevant database for your question."
+        print(f"received message from user: {user_message}")
 
-        # Notify user about database selection
-        print(f"Selected Database: {db_name}")
+        # Step 1: If no database has been selected, ask user to select a database
+        if not self.selected_database:
+            return self.ask_for_database_selection()
 
-        # Fetch the schema and generate SQL
-        schema = self.get_schema(db_name)
+        # Step 2: If no database matches based on the question, auto-select it
+        relevant_database = self.determine_relevant_database(user_message)
+        if not relevant_database:
+            return "Unable to determine a relevant database for the user's question."
+
+        # Notify about the selected database
+        print(f"Selected Database: {relevant_database}")
+        self.selected_database = relevant_database  # Set the selected database for this session
+
+        # Step 3: Fetch the schema of the selected database
+        schema = self.get_schema(relevant_database)
+
+        # Step 4: Generate the SQL query
         generate_sql_prompt_template = """Generate only the SQL query to answer the user's question. Do not include any explanations, natural language responses, or other text:
         {schema}
         Question: {question}
@@ -105,37 +101,33 @@ class ChatDatabaseAgent:
         combined_prompt = generate_sql_prompt.format(schema=schema, question=user_message)
         sql_query = self.call_groq_api(combined_prompt)
 
-        # Run SQL query
-        if sql_query.strip().lower() != "no":
-            db_response = run_query(db_name, sql_query)
+        # Step 5: Run the SQL query and get the result
+        if sql_query.strip().lower() != "no":  # Ensure it's a valid query
+            db_response = run_query(relevant_database, sql_query)
 
-            # Visualize result
+            # Step 6: Visualize the query result
             visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
             {query_result}
             """
             visualization_prompt = ChatPromptTemplate.from_template(visualization_prompt_template)
-            formatted_visualization = self.call_groq_api(
-                visualization_prompt.format(query_result=db_response)
-            )
+            combined_visualization_prompt = visualization_prompt.format(query_result=db_response)
+            formatted_result = self.call_groq_api(combined_visualization_prompt)
 
-            return f"Selected Database: {db_name}\n{formatted_visualization}"
+            # Step 7: Return the database name and formatted result
+            return f"Selected Database: {relevant_database}\nFormatted Table:\n{formatted_result}"
         else:
-            return f"Selected Database: {db_name}\nNo valid query result generated."
+            return f"Selected Database: {relevant_database}\nNo valid query result generated."
 
-    def pipe(self, user_message: str):
-        """Main pipeline to process user messages."""
-        greeting_response = self.respond_to_greeting(user_message)
-        if greeting_response:
-            return greeting_response
+    def ask_for_database_selection(self):
+        """List available databases and ask user to select one."""
+        database_names = list(db_connections.keys())
+        return f"Please select a database:\n" + "\n".join([f"{i+1}. {name}" for i, name in enumerate(database_names)])
 
-        if user_message.lower().startswith("select"):
-            # Handle manual database selection
-            db_name = user_message.split(" ", 1)[1].strip().lower()
-            if db_name in self.available_databases:
-                self.selected_database = db_name
-                return f"Database '{db_name}' selected! You can now ask queries specific to this database."
-            else:
-                return f"Invalid database name. Available databases: {', '.join(self.available_databases)}."
-
-        # Handle database-related queries
-        return self.handle_database_query(user_message)
+    def select_database(self, choice: int):
+        """Select a database based on the user's choice."""
+        database_names = list(db_connections.keys())
+        if 1 <= choice <= len(database_names):
+            self.selected_database = database_names[choice - 1]
+            return f"Selected Database: {self.selected_database}"
+        else:
+            return "Invalid selection. Please choose a valid number."
