@@ -6,12 +6,13 @@ import time
 
 # Define database URIs
 db_uris = {
-    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna',
+    # Add or modify your databases here
+    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys',
     "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
     "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila'
 }
 
-# Initialize database connections
+# Initialize database connections dynamically
 db_connections = {
     db_name: SQLDatabase.from_uri(uri)
     for db_name, uri in db_uris.items()
@@ -26,7 +27,7 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Multi-Database Groq API Pipeline"
+        self.name = "Dynamic Multi-Database Groq API Pipeline"
         # Initialize the Groq client
         self.client = Groq(api_key="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")
 
@@ -69,9 +70,10 @@ class Pipeline:
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """Pipeline for processing the user's message."""
-        # Friendly greeting with database list
+        # Friendly greeting with dynamic database list
         if user_message.lower() in ["hi", "hello", "how are you", "hi, how are you?"]:
-            return f"Hi, how are you? 😊\nHere’s the list of available databases:\n{', '.join(db_uris.keys())}"
+            available_databases = ', '.join(db_uris.keys())
+            return f"Hi, how are you? 😊\nHere’s the list of available databases:\n{available_databases}"
 
         # Process user query
         print(f"Received message from user: {user_message}")
