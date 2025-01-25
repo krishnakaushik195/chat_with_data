@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
@@ -6,16 +7,18 @@ import time
 
 # Define database URIs
 db_uris = {
-    # Add or modify your databases here
-    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna',
+    "sys": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sys',
     "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
     "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila'
 }
 
+# Dynamically extract database names from URIs
+dynamic_db_names = {uri.split("/")[-1]: uri for uri in db_uris.values()}
+
 # Initialize database connections dynamically
 db_connections = {
     db_name: SQLDatabase.from_uri(uri)
-    for db_name, uri in db_uris.items()
+    for db_name, uri in dynamic_db_names.items()
 }
 
 def run_query(database, query):
@@ -72,7 +75,7 @@ class Pipeline:
         """Pipeline for processing the user's message."""
         # Friendly greeting with dynamic database list
         if user_message.lower() in ["hi", "hello", "how are you", "hi, how are you?"]:
-            available_databases = ', '.join(db_uris.keys())
+            available_databases = ', '.join(dynamic_db_names.keys())
             return f"Hi, how are you? 😊\nHere’s the list of available databases:\n{available_databases}"
 
         # Process user query
