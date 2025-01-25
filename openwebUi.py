@@ -93,6 +93,6 @@ class Pipeline:
             formatted_result = self.call_groq_api(combined_visualization_prompt)
 
             # Return both the SQL query and the formatted table result
-            return f"Generated SQL Query: {groq_response}\nFormatted Table: {formatted_result}"
+            return f"Formatted Table: {formatted_result}"
         else:
             return "No valid SQL query generated."
