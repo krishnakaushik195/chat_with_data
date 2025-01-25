@@ -63,36 +63,37 @@ class Pipeline:
             formatted_prompt = schema_matching_prompt.format(schema=schema, question=question)
             response = self.call_groq_api(formatted_prompt).strip().lower()
             if response == "yes":
+                print(f"[LOG] Database {db_name} matched for the question.")
                 return db_name
         return None
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """Pipeline for processing the user's message."""
-        print(f"received message from user: {user_message}")
 
-        # Step 1: Show Available Databases
-        print("Available Databases:")
+        # Step 1: Show Available Databases (logged, not returned)
+        print("[LOG] Available Databases:")
         for db_name in db_connections.keys():
-            print(f"- {db_name}")
+            print(f"[LOG] - {db_name}")
         
-        # Ask user to select a database or continue with auto-selection
-        print("\nPlease select a database or type 'auto' to have the system choose for you:")
-        user_selection = input().strip().lower()
+        # Ask user to select a database or auto-select
+        print("[LOG] Awaiting database selection...")
+        user_selection = input("[LOG] Select a database or type 'auto': ").strip().lower()
 
         if user_selection == "auto":
             # Step 2: Automatically determine the relevant database based on the user's question
             relevant_database = self.determine_relevant_database(user_message)
             if not relevant_database:
                 return "Unable to determine a relevant database for the user's question."
-            print(f"System selected the database: {relevant_database}")
+            print(f"[LOG] System auto-selected the database: {relevant_database}")
         elif user_selection in db_connections:
             relevant_database = user_selection
-            print(f"User selected the database: {relevant_database}")
+            print(f"[LOG] User selected the database: {relevant_database}")
         else:
             return "Invalid selection. Please choose a valid database."
 
         # Step 3: Fetch the schema of the selected database
         schema = self.get_schema(relevant_database)
+        print(f"[LOG] Retrieved schema for {relevant_database}")
 
         # Step 4: Generate the SQL query
         generate_sql_prompt_template = """Generate only the SQL query to answer the user's question. Do not include any explanations, natural language responses, or other text:
@@ -102,10 +103,12 @@ class Pipeline:
         generate_sql_prompt = ChatPromptTemplate.from_template(generate_sql_prompt_template)
         combined_prompt = generate_sql_prompt.format(schema=schema, question=user_message)
         sql_query = self.call_groq_api(combined_prompt)
+        print(f"[LOG] Generated SQL query:\n{sql_query}")
 
         # Step 5: Run the SQL query and get the result
         if sql_query.strip().lower() != "no":  # Ensure it's a valid query
             db_response = run_query(relevant_database, sql_query)
+            print(f"[LOG] Query execution result:\n{db_response}")
 
             # Step 6: Visualize the query result
             visualization_prompt_template = """Output the following data directly as a clean table without any introductory text, explanations, or additional information:
@@ -115,7 +118,7 @@ class Pipeline:
             combined_visualization_prompt = visualization_prompt.format(query_result=db_response)
             formatted_result = self.call_groq_api(combined_visualization_prompt)
 
-            # Step 7: Return the database name and formatted result
-            return f"Selected Database: {relevant_database}\nFormatted Table:\n{formatted_result}"
+            # Step 7: Return only the final output
+            return f"Formatted Table:\n{formatted_result}"
         else:
-            return f"Selected Database: {relevant_database}\nNo valid query result generated."
+            return f"No valid query result generated for the database {relevant_database}."
