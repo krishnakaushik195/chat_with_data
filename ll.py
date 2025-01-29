@@ -1,4 +1,4 @@
-from urllib.parse import urlparse
+#from urllib.parse import urlparse
 from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
