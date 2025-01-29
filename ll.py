@@ -1,4 +1,4 @@
-import os
+
 from groq import Groq
 from typing import List, Union, Generator, Iterator
 
