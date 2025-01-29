@@ -37,7 +37,7 @@ class Pipeline:
         print(f"on_shutdown:{__name__}")
         pass
 
-    def call_groq_api(self, prompt: str, api_key: str, model: str = "mixtral-8x7b-32768") -> str:
+    def call_groq_api(self, prompt: str, api_key: str = "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", model: str = "mixtral-8x7b-32768") -> str:
         """Send a request to the Groq API and return its response."""
         try:
             groq_client = Groq(api_key=api_key)  # Groq client initialized with the provided API key
@@ -50,7 +50,7 @@ class Pipeline:
         except Exception as e:
             return f"Error while communicating with Groq API: {e}"
 
-    def extract_database_and_question(self, user_question, api_key: str):
+    def extract_database_and_question(self, user_question, api_key: str = "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"):
         """Determine which database the user is referring to and extract the question."""
         db_list = ', '.join(self.dynamic_db_names.keys())
         
@@ -68,7 +68,7 @@ class Pipeline:
         print(f"Raw Groq response: {response}")  # This is the point where we get the first LLM output
         return response
 
-    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict, api_key: str) -> Union[str, List[dict]]:
+    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict, api_key: str = "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") -> Union[str, List[dict]]:
         """Pipeline for processing the user's message."""
         
         print(f"received message from user: {user_message}")  # user_message to logs
