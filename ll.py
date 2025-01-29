@@ -1,4 +1,4 @@
-#from urllib.parse import urlparse
+from urllib.parse import urlparse
 from langchain_community.utilities import SQLDatabase
 from typing import List, Union, Generator, Iterator
 from groq import Groq  # Ensure the Groq library is installed
@@ -41,7 +41,7 @@ def run_query_with_timing(database, query):
 class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
-        self.client = Groq()  # Ensure the Groq client is initialized
+        self.client = Groq(api_key="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")  # Ensure the Groq client is initialized
 
     async def on_startup(self):
         """Called when the server starts."""
