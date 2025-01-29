@@ -34,12 +34,4 @@ class Pipeline:
         
         self.conversation_history.append({"user": user_message, "db": db_name, "question": question})
         
-        if db_name != "None" and question != "None":
-            return f"Using {db_name}, answering: {question}"
-        
-        elif db_name != "None":
-            self.selected_db = db_name  # Store for next interaction
-            return f"You have selected {db_name}. What would you like to ask?"
-        
-        else:
-            return "No matching database. Would you like a general response instead?"
+        return f"Database: {db_name}, Question: {question}"
