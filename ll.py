@@ -11,8 +11,7 @@ db_uris = {
     "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
     "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila',
     "world": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/world',
-    "krishna": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna',
-    "db_info1": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/db_info1'
+    "krishna": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna'
 }
 
 # Extract database names dynamically
@@ -35,7 +34,6 @@ class Pipeline:
     def __init__(self):
         self.name = "Ur DataBase_Pipeline"
         self.client = Groq(api_key="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")
-        self.db_list = ', '.join(dynamic_db_names.keys())
 
     async def on_startup(self):
         print(f"on_startup: {__name__}")
@@ -60,29 +58,13 @@ class Pipeline:
 
     def extract_database(self, user_question):
         """Determine which database the user is referring to."""
+        db_list = ', '.join(dynamic_db_names.keys())
         db_extraction_prompt = f"""
         Here is the user's question: "{user_question}"
-        Based on this question, determine which database it belongs to from the following list: {self.db_list}
+        Based on this question, determine which database it belongs to from the following list: {db_list}
         Respond with only the database name without any additional text.
         """
         return self.call_groq_api(db_extraction_prompt)
-
-    def determine_db_and_question(self, user_message: str):
-        """Determine both the database name and the question from the user message."""
-        prompt = f"""
-        Here is the user message: "{user_message}"
-        Based on this question, determine which database it belongs to from the following list: {self.db_list}.
-        Respond with only the database name without any additional text.
-        Also, extract the question from the message if it exists; otherwise, return 'None'.
-        """
-        response = self.call_groq_api(prompt)
-        
-        # Split the response into database name and question
-        response_parts = response.split("\n")
-        db_name = response_parts[0].strip()
-        question = response_parts[1].strip() if len(response_parts) > 1 else 'None'
-        
-        return db_name, question
 
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
         """Pipeline for processing the user's message."""
@@ -91,17 +73,12 @@ class Pipeline:
             available_databases = ', '.join(dynamic_db_names.keys())
             return f"Hi, how are you Admin? 😊\nHere’s the list of available databases:\n{available_databases}\nPlease specify your query, including the database name."
         
-        # Determine the database and question from the user query
-        selected_db, user_question = self.determine_db_and_question(user_message)
+        # Extract database name from the user query
+        selected_db = self.extract_database(user_message)
         if selected_db not in dynamic_db_names:
             return f"Could not determine the database from your query. Please specify one from: {', '.join(dynamic_db_names.keys())}"
-        
+
         print(f"Selected Database: {selected_db}")
-        print(f"Extracted Question: {user_question}")
-        
-        # If no valid question is found
-        if user_question == 'None':
-            return f"Please specify a valid question for the selected database: {selected_db}."
 
         # Fetch the schema of the selected database
         schema = self.get_schema(selected_db)
@@ -112,7 +89,7 @@ class Pipeline:
         Question: {question}
         SQL Query:"""
         generate_sql_prompt = ChatPromptTemplate.from_template(generate_sql_prompt_template)
-        combined_prompt = generate_sql_prompt.format(schema=schema, question=user_question)
+        combined_prompt = generate_sql_prompt.format(schema=schema, question=user_message)
         sql_query = self.call_groq_api(combined_prompt)
 
         # Run the SQL query and get the result
