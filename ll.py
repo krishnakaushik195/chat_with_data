@@ -1,4 +1,3 @@
-
 from groq import Groq
 from typing import List, Union, Generator, Iterator
 
@@ -6,7 +5,7 @@ class Pipeline:
     def __init__(self):
         self.name = "00 Repeater Example"
         self.client = Groq(
-            api_key=os.environ.get("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"),
+            api_key="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",  # Direct API key
         )
         
     async def on_startup(self):
