@@ -1,70 +1,45 @@
-#from typing import List, Union, Generator, Iterator
-from groq import Groq  # Import the Groq package
+from typing import List, Union, Generator, Iterator
+from groq import Groq
 
 class Pipeline:
     def __init__(self):
-        self.name = "Conversational ChatBot with Memory"
-        # Initialize the Groq client
+        self.name = "chat conversation"
         self.client = Groq(api_key="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")
-        self.memory = []  # List to store conversation history
-
+        self.db_list = ["database_1", "database_2", "database_3", "database_4"]
+        self.selected_db = None  # Store the last detected database if needed
+        self.conversation_history = []  # Store conversation history
+    
     async def on_startup(self):
-        # This function is called when the server is started.
         print(f"on_startup: {__name__}")
-        pass
-
+    
     async def on_shutdown(self):
-        # This function is called when the server is shutdown.
         print(f"on_shutdown: {__name__}")
-        pass
-
-    def query_groq_database(self, query: str) -> str:
-        """Query the Groq database and return results."""
-        try:
-            response = self.client.query(query)
-            if response['status'] == 'success':
-                return f"Query result: {response['data']}"
-            else:
-                return "Error: Query failed, check the database structure or query."
-        except Exception as e:
-            return f"Error: {str(e)}"
-
-    def generate_sql_query(self, question: str) -> str:
-        """Generate SQL query based on the user's question."""
-        if "total sales" in question.lower():
-            return "SELECT SUM(amount) FROM sales"
-        else:
-            return f"SELECT * FROM database WHERE question='{question}'"
-
-    def update_memory(self, user_message: str, bot_response: str):
-        """Update memory with the latest user and bot messages."""
-        self.memory.append({"user": user_message, "bot": bot_response})
-
-    def get_context(self) -> str:
-        """Get the memory context for conversation continuity."""
-        context = ""
-        for interaction in self.memory[-5:]:  # Limit to the last 5 exchanges
-            context += f"User: {interaction['user']}\nBot: {interaction['bot']}\n"
-        return context
-
+    
+    def determine_db_and_question(self, user_message: str):
+        prompt = (f"Here is the user message: \"{user_message}\"\n"
+                  f"Based on this question, determine which database it belongs to from the following list: {self.db_list}.\n"
+                  f"Respond with only the database name without any additional text.\n"
+                  f"Also, extract the question from the message if it exists; otherwise, return 'None'.")
+        
+        response = self.client.chat_completion(messages=[{"role": "system", "content": prompt}])  # Groq API chat completion call
+        reply = response["choices"][0]["message"]["content"].strip()
+        
+        db_name, question = reply.split("\n") if "\n" in reply else (reply, "None")
+        db_name, question = db_name.strip(), question.strip()
+        
+        return db_name if db_name in self.db_list else "None", question
+    
     def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
-        """Process the user message and generate a bot response."""
-        print(f"Received message: {user_message}")  # Log the incoming message
-
-        # Get conversation context from memory
-        context = self.get_context()
-
-        # Generate SQL query if needed
-        if "query" in user_message.lower() or "sales" in user_message.lower():
-            query = self.generate_sql_query(user_message)
-            db_response = self.query_groq_database(query)
-            bot_response = f"Here are the results for your query: {db_response}"
+        db_name, question = self.determine_db_and_question(user_message)
+        
+        self.conversation_history.append({"user": user_message, "db": db_name, "question": question})
+        
+        if db_name != "None" and question != "None":
+            return f"Using {db_name}, answering: {question}"
+        
+        elif db_name != "None":
+            self.selected_db = db_name  # Store for next interaction
+            return f"You have selected {db_name}. What would you like to ask?"
+        
         else:
-            bot_response = "I'm here to help! How can I assist you today?"
-
-        # Update memory with the latest user and bot messages
-        self.update_memory(user_message, bot_response)
-
-        # Return response along with context (optional)
-        return f"{bot_response}\n\n(Conversation context: \n{context})"
-
+            return "No matching database. Would you like a general response instead?"
