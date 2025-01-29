@@ -11,7 +11,8 @@ db_uris = {
     "chinook": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/chinook',
     "sakila": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/sakila',
     "world": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/world',
-    "krishna": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna'
+    "krishna": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/krishna',
+    "db_info1": 'mysql+mysqlconnector://root:Krishna%40195@host.docker.internal:3306/db_info1'
 }
 
 # Extract database names dynamically
@@ -32,9 +33,30 @@ def run_query(database, query):
 
 class Pipeline:
     def __init__(self):
-        self.name = "Ur DataBase_Pipeline"
-        self.client = Groq(api_key="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")
+        from typing import List, Union, Generator, Iterator
 
+class Pipeline:
+    def __init__(self):
+        self.name = "00 Repeater Example"
+        pass
+
+    async def on_startup(self):
+        # This function is called when the server is started.
+        print(f"on_startup:{__name__}")
+        pass
+
+    async def on_shutdown(self):
+        # This function is called when the server is shutdown.
+        print(f"on_shutdown:{__name__}")
+        pass
+
+    
+    def pipe(self, user_message: str, model_id: str, messages: List[dict], body: dict) -> Union[str, Generator, Iterator]:
+        # This function is called when a new user_message is receieved.
+        
+        print(f"received message from user: {user_message}") #user_message to logs
+        return (f"received message from user: {user_message}") #user_message to the UI
+        
     async def on_startup(self):
         print(f"on_startup: {__name__}")
 
