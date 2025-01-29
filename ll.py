@@ -3,7 +3,8 @@ from groq import Groq
 
 class Pipeline:
     def __init__(self):
-        self.name = "chat conversation"
+        self.name = "Ur DataBase_Pipeline"
+        # Initialize the Groq client
         self.client = Groq(api_key="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")
         self.db_list = ["database_1", "database_2", "database_3", "database_4"]
         self.selected_db = None  # Store the last detected database if needed
@@ -21,8 +22,11 @@ class Pipeline:
                   f"Respond with only the database name without any additional text.\n"
                   f"Also, extract the question from the message if it exists; otherwise, return 'None'.")
         
-        response = self.client.chat_completion(messages=[{"role": "system", "content": prompt}])  # Groq API chat completion call
-        reply = response["choices"][0]["message"]["content"].strip()
+        response = self.client.chat.completions.create(
+            model="gpt-4",  # Ensure you specify the correct model
+            messages=[{"role": "system", "content": prompt}]
+        )
+        reply = response.choices[0].message.content.strip()
         
         db_name, question = reply.split("\n") if "\n" in reply else (reply, "None")
         db_name, question = db_name.strip(), question.strip()
